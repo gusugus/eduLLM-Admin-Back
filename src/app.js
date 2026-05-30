@@ -5,6 +5,7 @@ const rateLimit = require('express-rate-limit');
 const logger = require('./config/logger');
 const { errorHandler } = require('./middlewares/errorHandler');
 const { logRequest } = require('./middlewares/logger.middleware');
+const authMiddleware = require('./middlewares/auth.middleware');
 const routes = require('./routes');
 
 const app = express();
@@ -21,8 +22,11 @@ app.use(logRequest);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Auth middleware (débil: no bloquea, solo decodifica si hay token válido)
+app.use(authMiddleware);
+
 // Rutas
-app.use('/api/v1', routes);
+app.use('/api/admin', routes);
 
 // Manejador de errores (siempre al final)
 app.use(errorHandler);

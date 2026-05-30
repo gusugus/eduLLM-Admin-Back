@@ -1,4 +1,4 @@
-const  subjectService  = require('../services/subject.service');
+const subjectService = require('../services/subject.service');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
 
@@ -27,6 +27,6 @@ exports.updateSubject = catchAsync(async (req, res) => {
 
 exports.deleteSubject = catchAsync(async (req, res) => {
   const { id } = req.params;
-  await subjectService.delete(id);
-  res.json({ success: true, message: 'Deleted' });
+  const result = await subjectService.delete(id);
+  res.json({ success: true, message: result.message || 'Materia eliminada correctamente' });
 });

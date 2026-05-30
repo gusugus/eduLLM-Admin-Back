@@ -1,13 +1,17 @@
-FROM node:18-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY prisma ./prisma
-RUN npx prisma generate
+# Dockerfile.dev
+FROM node:20-alpine
 
-FROM node:18-alpine
 WORKDIR /app
-COPY --from=builder /app/node_modules ./node_modules
-COPY . .
-EXPOSE 3000
-CMD ["npm", "start"]
+
+RUN apk add --no-cache openssl
+RUN npm install -g nodemon
+
+COPY package*.json ./
+RUN npm install
+
+# No ejecutamos prisma generate aquí, lo hará el script dev
+
+EXPOSE 8002
+
+# Usar el script de desarrollo que genera prisma automáticamente
+CMD ["npm", "run", "dev"]

@@ -27,6 +27,15 @@ model admin_estado {
   usuario_creacion      Int?
   fecha_modificacion    DateTime?               @db.Timestamptz(6)
   usuario_modificacion  Int?
+  // 👇 AGREGA TODAS LAS RELACIONES INVERSAS
+  admin_parametro        admin_parametro[]
+  admin_periodo_lectivo  admin_periodo_lectivo[]
+  estudiante_materia     estudiante_materia[]
+  info_materia           info_materia[]
+  info_opcion            info_opcion[]
+  profesor_materia       profesor_materia[]
+  
+  @@map(name: "admin_estado")
 }
 
 model admin_estudiante {

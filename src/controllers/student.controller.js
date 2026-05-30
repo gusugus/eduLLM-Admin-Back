@@ -15,18 +15,20 @@ exports.getStudentById = catchAsync(async (req, res) => {
 });
 
 exports.createStudent = catchAsync(async (req, res) => {
-  const newItem = await studentService.create(req.body);
+  const newItem = await studentService.createWithUser(req.body);
   res.status(201).json({ success: true, data: newItem });
 });
 
 exports.updateStudent = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const updated = await studentService.update(id, req.body);
+  const usuarioModificacion = req.user?.id_usuario || null;
+  const updated = await studentService.update(id, req.body, usuarioModificacion);
   res.json({ success: true, data: updated });
 });
 
 exports.deleteStudent = catchAsync(async (req, res) => {
   const { id } = req.params;
-  await studentService.delete(id);
-  res.json({ success: true, message: 'Deleted' });
+  const usuarioModificacion = req.user?.id_usuario || null;
+  const result = await studentService.delete(id, usuarioModificacion);
+  res.json({ success: true, message: result.message || 'Estudiante eliminado correctamente' });
 });

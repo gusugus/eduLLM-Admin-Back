@@ -1,0 +1,39 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rol-admin-ms
+    networks:
+      - default          # para comunicarse con qdrant
+      - observability-net # para enviar trazas a Alloy
+    restart: unless-stopped
+    #ports:
+    #  - "8002:8002"  # mapea puerto host:contenedor
+    volumes:
+      # Bind mount: monta TODO tu código local dentro del contenedor
+      - .:/app
+      # Anonymous volume: evita que node_modules local sobrescriba el del contenedor
+      - /app/node_modules
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://admin:admin@host.docker.internal:5432/edu_llm?schema=comun
+      - HOST=0.0.0.0
+      - PORT=8002
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    # Opcional: para debugging (permite attach de debugger)
+    # command: ["nodemon", "--inspect=0.0.0.0:9229", "server.js"]
+    # ports:
+    #   - "9229:9229"  # debugging port
+
+
+networks:
+  observability-net:
+    external: true   

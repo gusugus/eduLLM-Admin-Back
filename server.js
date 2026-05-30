@@ -2,9 +2,10 @@ require('dotenv').config();
 const app = require('./src/app');
 const logger = require('./src/config/logger');
 
-const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
+const PORT = process.env.PORT || 8002;
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, HOST, () => {
   logger.info(`Server running on port ${PORT}`);
 });
 

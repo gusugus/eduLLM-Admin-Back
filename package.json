@@ -5,9 +5,10 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
+    "dev": "npx prisma generate && nodemon server.js",
     "prisma:pull": "prisma db pull",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "docker:dev": "npx prisma generate && nodemon --legacy-watch server.js"
   },
   "dependencies": {
     "@prisma/client": "^5.8.0",
