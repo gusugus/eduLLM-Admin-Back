@@ -32,7 +32,6 @@ const catchAsync = (fn) => (req, res, next) => {
 if (err instanceof AppError) {
   return res.status(err.statusCode).json({ success: false, message: err.message });
 }
-// Error de Prisma, Zod, etc. → 500
 res.status(500).json({ success: false, message: 'Internal Server Error' });
 ```
 
@@ -63,8 +62,8 @@ Nunca se eliminan registros físicamente. Se cambia `id_estado` al valor corresp
 
 | id_estado | Significado |
 |-----------|-------------|
-| 1         | Activo      |
-| 4         | Eliminado   |
+| 1 | Activo |
+| 4 | Eliminado |
 
 ### Implementación en Repository:
 ```javascript
@@ -170,18 +169,22 @@ const password_hash = await bcrypt.hash(password, 10);
 
 ## 7.7 Auth Middleware
 
-El middleware `auth.middleware.js` verifica JWT:
+El middleware `auth.middleware.js` es **no-bloqueante**: decodifica el JWT si existe pero nunca bloquea la request:
+
 ```javascript
-const decoded = jwt.verify(token, jwtSecret);
-req.user = decoded;
+const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
+if (token) {
+  try {
+    req.user = jwt.verify(token, jwtSecret);
+  } catch (err) {
+    req.user = null;
+  }
+}
+next();
 ```
 
-Actualmente **deshabilitado** en todas las rutas (comentado en los route files). Para activarlo:
-```javascript
-// En routes/v1/[entity].routes.js:
-const authMiddleware = require('../../middlewares/auth.middleware');
-router.use(authMiddleware);
-```
+- Si hay token válido → `req.user` tiene los datos decodificados
+- Si no hay token o es inválido → `req.user = null`, la request continúa
 
 ## 7.8 Capas y Responsabilidades
 
@@ -198,7 +201,8 @@ router.use(authMiddleware);
 | Módulo | Controller | Service | Repository | Mapper | Status |
 |--------|-----------|---------|------------|--------|--------|
 | Profesores | ✅ | ✅ | ✅ | ✅ | Funcional |
-| Estudiantes | ✅ | ⚠️ Stub | ⚠️ Stub | ❌ | Sin implementar |
-| Materias | ✅ | ⚠️ Stub | ⚠️ Stub | ❌ | Sin implementar |
+| Estudiantes | ✅ | ✅ | ✅ | ✅ | Funcional |
+| Materias | ✅ | ✅ | ✅ | ✅ | Funcional |
+| Asignaciones | ✅ | ✅ | N/A | N/A | Funcional |
 | Usuarios | ✅ | N/A (usa Prisma directo) | N/A | N/A | Funcional |
 | Estado/Rol | N/A | ✅ | N/A | N/A | Funcional |

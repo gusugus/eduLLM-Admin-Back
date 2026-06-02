@@ -1,6 +1,45 @@
 # 6. Flujos de Datos
 
-## 6.1 Profesor — Crear (POST /api/v1/professors)
+## 6.1 Autenticación — Login
+
+```
+Cliente                  Gateway                    Backend
+  │                        │                          │
+  │  POST /api/auth/login  │                          │
+  │  {username, password}  │                          │
+  │───────────────────────>│                          │
+  │                        │  POST /auth/login        │
+  │                        │─────────────────────────>│
+  │                        │                          │
+  │                        │  Validar credenciales    │
+  │                        │  Generar token JWT       │
+  │                        │  Setear cookie HttpOnly  │
+  │                        │<─────────────────────────│
+  │  200 + Set-Cookie      │                          │
+  │<───────────────────────│                          │
+```
+
+## 6.2 Autenticación — Verify
+
+```
+Cliente                    Gateway                    Backend
+  │                          │                          │
+  │  GET /api/auth/verify    │                          │
+  │  (cookie automática)     │                          │
+  │─────────────────────────>│                          │
+  │                          │  GET /auth/verify        │
+  │                          │  (con cookie)            │
+  │                          │─────────────────────────>│
+  │                          │                          │
+  │                          │  Decodificar token       │
+  │                          │  Retornar usuario + rol  │
+  │                          │<─────────────────────────│
+  │  200 {authenticated,     │                          │
+  │  username, rol, ...}     │                          │
+  │<─────────────────────────│                          │
+```
+
+## 6.3 Profesor — Crear (POST /api/admin/professors)
 
 ```mermaid
 sequenceDiagram
@@ -21,81 +60,7 @@ sequenceDiagram
     C-->>Client: 201 { success: true, data }
 ```
 
-## 6.2 Profesor — Listar (GET /api/v1/professors)
-
-```mermaid
-sequenceDiagram
-    participant C as Controller
-    participant S as ProfessorService
-    participant R as ProfessorRepository
-    participant ES as EstadoService
-    participant RS as RolService
-    participant M as ProfessorMapper
-
-    C->>S: findAll()
-    S->>R: findAll([1, 4])
-    R-->>S: profesores[] (con admin_usuario)
-    S->>ES: getNombreEstado(id_estado)
-    S->>RS: getNombreRol(id_rol)
-    ES-->>S: "Activo"
-    RS-->>S: "Profesor"
-    S->>M: toResponseList(enriched)
-    M-->>S: DTOs[]
-    S-->>C: data[]
-    C-->>Client: 200 { success: true, data }
-```
-
-## 6.3 Profesor — Obtener por ID (GET /api/v1/professors/:id)
-
-```mermaid
-sequenceDiagram
-    participant C as Controller
-    participant S as ProfessorService
-    participant R as ProfessorRepository
-
-    C->>S: findById(id)
-    S->>R: findById(id)
-    R-->>S: profesor + admin_usuario + profesor_materia
-    S->>S: enriquece con estadoNombre + rolNombre
-    S->>M: toResponse(prof, includeMaterias=true)
-    M-->>S: DTO con materias[]
-    S-->>C: data
-    C-->>Client: 200 { success: true, data }
-```
-
-## 6.4 Profesor — Actualizar (PUT /api/v1/professors/:id)
-
-```
-1. Route recibe PUT /professors/:id con body
-2. Controller llama professorService.update(id, data, usuarioModificacion)
-3. Service:
-   a. Verifica que el profesor existe (professorRepository.findById)
-   b. Si no existe → throw AppError('Profesor no encontrado', 404)
-   c. Si hay campos de usuario (primer_nombre, apellido, cedula, correo):
-      - Abre $transaction
-      - Actualiza admin_usuario con los campos presentes
-      - Actualiza admin_profesor (departamento, id_estado)
-      - Retorna profesor actualizado
-   d. Si solo hay campos de profesor:
-      - ProfessorRepository.update(id, data) directo
-4. Controller responde 200 con JSON
-```
-
-### PUT — Body esperado:
-```json
-{
-  "primer_nombre": "Juan",
-  "apellido_paterno": "Pérez",
-  "apellido_materno": "López",
-  "cedula": "0912345678",
-  "correo": "juan@email.com",
-  "departamento": "Física"
-}
-```
-
-> **Nota**: `username` y `password` no se envían en edición.
-
-## 6.5 Profesor — Soft Delete (DELETE /api/v1/professors/:id)
+## 6.4 Profesor — Soft Delete (DELETE /api/admin/professors/:id)
 
 ```mermaid
 sequenceDiagram
@@ -110,9 +75,46 @@ sequenceDiagram
     C-->>Client: 200 { success: true, message: "Profesor eliminado correctamente" }
 ```
 
-### Soft Delete — Detalle:
-- **id_estado** cambia de `1` (Activo) a `4` (Eliminado)
-- **fecha_modificacion** se actualiza a `new Date()`
-- **usuario_modificacion** se toma de `req.user?.id_usuario` (o `null` si no hay auth)
-- El registro NO se elimina físicamente de la BD
-- Las consultas GET listan registros con `id_estado IN [1, 4]`
+## 6.5 Asignaciones — Profesor → Materia
+
+```mermaid
+sequenceDiagram
+    participant C as AssignmentController
+    participant AS as AssignmentService
+    participant PS as PeriodoService
+    participant P as Prisma
+
+    C->>AS: assignProfessorToSubject({ idProfesor, idMaterias, idPeriodoLectivo })
+    AS->>PS: getPeriodoActivo()
+    PS-->>AS: periodo
+    AS->>P: admin_profesor_materia.deleteMany({ idProfesor, idPeriodoLectivo })
+    loop por cada materia
+        AS->>P: admin_profesor_materia.create({ idProfesor, idMateria, idPeriodoLectivo })
+    end
+    P-->>AS: asignaciones creadas
+    AS-->>C: resultado
+    C-->>Client: 201 { success: true, data }
+```
+
+## 6.6 Asignaciones — Estudiantes → Materia
+
+```mermaid
+sequenceDiagram
+    participant C as AssignmentController
+    participant AS as AssignmentService
+    participant PS as PeriodoService
+    participant P as Prisma
+
+    C->>AS: assignStudentsToSubject({ idMateria, idEstudiantes, idPeriodoLectivo })
+    AS->>PS: getPeriodoActivo()
+    PS-->>AS: periodo
+    AS->>P: admin_detalle_matricula.deleteMany({ idMateria, idPeriodoLectivo })
+    loop por cada estudiante
+        AS->>P: admin_detalle_matricula.create({ idMatricula, idMateria, idPeriodoLectivo })
+    end
+    P-->>AS: asignaciones creadas
+    AS-->>C: resultado
+    C-->>Client: 201 { success: true, data }
+```
+
+> Ambos flujos de asignación reemplazan todas las asignaciones existentes del profesor/estudiante en el período (deleteMany + createMany).

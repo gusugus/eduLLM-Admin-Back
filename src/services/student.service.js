@@ -7,17 +7,30 @@ const bcrypt = require('bcryptjs');
 
 const logger = require('../config/logger');
 const AppError = require('../utils/AppError');
+const ESTADOS = require('../constants/estados');
+const ROLES = require('../constants/roles');
 
 const StudentMapper = require('../mappers/student.mapper');
+const { sanitizeName, sanitizeUsername, sanitizeEmail, sanitizeCedula, sanitizeString } = require('../utils/sanitize');
+
+const studentSanitizeMap = {
+  primer_nombre: sanitizeName,
+  segundo_nombre: sanitizeName,
+  apellido_paterno: sanitizeName,
+  apellido_materno: sanitizeName,
+  cedula: sanitizeCedula,
+  correo: sanitizeEmail,
+  username: sanitizeUsername
+};
 
 class StudentService {
   async findAll() {
-    const students = await studentRepository.findAll([1, 4]);
+    const students = await studentRepository.findAll([ESTADOS.ACTIVO, ESTADOS.ELIMINADO]);
 
     const enriched = await Promise.all(students.map(async (stu) => {
       const [estadoNombre, rolNombre] = await Promise.all([
         estadoService.getNombreEstado(stu.id_estado),
-        rolService.getNombreRol(stu.admin_usuario.id_rol)
+        rolService.getNombreRol(stu.usuario.id_rol)
       ]);
 
       stu.estadoNombre = estadoNombre;
@@ -36,7 +49,7 @@ class StudentService {
 
     const [estadoNombre, rolNombre] = await Promise.all([
       estadoService.getNombreEstado(student.id_estado),
-      rolService.getNombreRol(student.admin_usuario.id_rol)
+      rolService.getNombreRol(student.usuario.id_rol)
     ]);
 
     student.estadoNombre = estadoNombre;
@@ -47,75 +60,72 @@ class StudentService {
   }
 
   async createWithUser(data) {
+    const safe = {
+      ...data,
+      ...Object.fromEntries(
+        Object.entries(studentSanitizeMap).map(([key, fn]) => [key, data[key] !== undefined ? fn(data[key]) : data[key]])
+      )
+    };
+
     const {
-      cedula,
-      username,
-      primer_nombre,
-      apellido_paterno,
-      apellido_materno,
-      correo,
-      password,
-      codigo_estudiante,
-      grado,
-      grupo,
-      id_estado = 1
-    } = data;
+      cedula, username, primer_nombre, segundo_nombre,
+      apellido_paterno, apellido_materno, correo, password,
+      id_estado = ESTADOS.ACTIVO
+    } = safe;
+
+    if (!username) throw new AppError('El username es requerido', 400);
+    if (!primer_nombre) throw new AppError('El primer nombre es requerido', 400);
+    if (!apellido_paterno) throw new AppError('El apellido paterno es requerido', 400);
+
+    const usernameExists = await prisma.usuario.findUnique({ where: { username } });
+    if (usernameExists) {
+      throw new AppError(`El username '${username}' ya está en uso`, 409);
+    }
 
     const password_hash = await bcrypt.hash(password, 10);
 
     const result = await prisma.$transaction(async (tx) => {
-      const usuario = await tx.admin_usuario.create({
+      const usuario = await tx.usuario.create({
         data: {
-          cedula,
-          username,
-          primer_nombre,
-          apellido_paterno,
-          apellido_materno,
-          correo,
-          password_hash,
-          id_rol: 3,
-          id_estado: 1,
+          cedula, username, primer_nombre, segundo_nombre,
+          apellido_paterno, apellido_materno, correo, password_hash,
+          id_rol: ROLES.ESTUDIANTE,
+          id_estado: ESTADOS.ACTIVO,
           usuario_creacion: data.usuario_creacion || null
         }
       });
 
-      const student = await tx.admin_estudiante.create({
+      const student = await tx.estudiante.create({
         data: {
           id_usuario: usuario.id_usuario,
-          codigo_estudiante,
-          grado,
-          grupo,
           id_estado,
           usuario_creacion: data.usuario_creacion || null
         },
-        include: {
-          admin_usuario: true
-        }
+        include: { usuario: true }
       });
 
       return student;
     });
 
-    logger.info(`Creado estudiante: ${result.admin_usuario.primer_nombre} ${result.admin_usuario.apellido_paterno}`);
+    const nom = result.usuario;
+    logger.info(`Creado estudiante: ${nom.primer_nombre} ${nom.segundo_nombre || ''} ${nom.apellido_paterno}`);
 
     return {
       id: result.id_estudiante,
-      nombreCompleto: `${result.admin_usuario.primer_nombre} ${result.admin_usuario.apellido_paterno}`,
-      cedula: result.admin_usuario.cedula,
-      correo: result.admin_usuario.correo,
-      username: result.admin_usuario.username,
-      codigo_estudiante: result.codigo_estudiante,
-      grado: result.grado,
-      grupo: result.grupo
+      id_usuario: result.usuario.id_usuario,
+      nombreCompleto: `${nom.primer_nombre} ${nom.segundo_nombre || ''} ${nom.apellido_paterno}`,
+      cedula: result.usuario.cedula,
+      correo: result.usuario.correo,
+      username: result.usuario.username,
     };
   }
 
   async delete(id, usuarioModificacion = null) {
     logger.info(`Eliminando estudiante id: ${id} por usuario: ${usuarioModificacion || 'system'}`);
-    return await prisma.admin_estudiante.update({
+    return await prisma.estudiante.update({
       where: { id_estudiante: parseInt(id) },
       data: {
-        id_estado: 4,
+        id_estado: ESTADOS.ELIMINADO,
         fecha_modificacion: new Date(),
         usuario_modificacion: usuarioModificacion || null
       }
@@ -128,27 +138,32 @@ class StudentService {
       throw new AppError('Estudiante no encontrado', 404);
     }
 
+    const safe = {
+      ...data,
+      ...Object.fromEntries(
+        Object.entries(studentSanitizeMap).map(([key, fn]) => [key, data[key] !== undefined ? fn(data[key]) : data[key]])
+      )
+    };
+
     const studentUpdateData = {
-      codigo_estudiante: data.codigo_estudiante,
-      grado: data.grado,
-      grupo: data.grupo,
-      id_estado: data.id_estado || existingStudent.id_estado,
+      id_estado: safe.id_estado || existingStudent.id_estado,
       usuario_modificacion: usuarioModificacion || null,
       fecha_modificacion: new Date()
     };
 
     const userUpdateData = {};
-    if (data.primer_nombre !== undefined) userUpdateData.primer_nombre = data.primer_nombre;
-    if (data.apellido_paterno !== undefined) userUpdateData.apellido_paterno = data.apellido_paterno;
-    if (data.apellido_materno !== undefined) userUpdateData.apellido_materno = data.apellido_materno;
-    if (data.cedula !== undefined) userUpdateData.cedula = data.cedula;
-    if (data.correo !== undefined) userUpdateData.correo = data.correo;
+    if (safe.primer_nombre !== undefined) userUpdateData.primer_nombre = safe.primer_nombre;
+    if (safe.segundo_nombre !== undefined) userUpdateData.segundo_nombre = safe.segundo_nombre;
+    if (safe.apellido_paterno !== undefined) userUpdateData.apellido_paterno = safe.apellido_paterno;
+    if (safe.apellido_materno !== undefined) userUpdateData.apellido_materno = safe.apellido_materno;
+    if (safe.cedula !== undefined) userUpdateData.cedula = safe.cedula;
+    if (safe.correo !== undefined) userUpdateData.correo = safe.correo;
 
     let updated;
 
     if (Object.keys(userUpdateData).length > 0) {
       updated = await prisma.$transaction(async (tx) => {
-        await tx.admin_usuario.update({
+        await tx.usuario.update({
           where: { id_usuario: existingStudent.id_usuario },
           data: {
             ...userUpdateData,
@@ -157,10 +172,10 @@ class StudentService {
           }
         });
 
-        const student = await tx.admin_estudiante.update({
+        const student = await tx.estudiante.update({
           where: { id_estudiante: parseInt(id) },
           data: studentUpdateData,
-          include: { admin_usuario: true }
+          include: { usuario: true }
         });
 
         return student;

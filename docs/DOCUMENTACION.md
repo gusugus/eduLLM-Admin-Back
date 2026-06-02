@@ -122,21 +122,23 @@ La BD usa el schema `comun` en PostgreSQL. Los modelos principales son:
 
 | Modelo Prisma       | Tabla BD            | Descripción                              |
 |---------------------|---------------------|------------------------------------------|
-| `admin_usuario`     | `admin_usuario`     | Usuario base (cedula, username, password, id_rol, id_estado) |
-| `admin_profesor`    | `admin_profesor`    | Extiende usuario con `departamento`      |
-| `admin_estudiante`  | `admin_estudiante`  | Extiende usuario con `codigo_estudiante`, `grado`, `grupo` |
-| `admin_estado`      | `admin_estado`      | Catálogo de estados (Activo, Inactivo, Eliminado...) |
-| `admin_rol`         | `admin_rol`         | Catálogo de roles (Admin, Profesor, Estudiante) |
-| `info_materia`      | `info_materia`      | Materias (nombre, descripcion, nombre_normalizado) |
+| `usuario`           | `admin_usuario`     | Usuario base (cedula, username, password, id_rol, id_estado) |
+| `profesor`          | `admin_profesor`    | Extiende usuario con `departamento`      |
+| `estudiante`        | `admin_estudiante`  | Extiende usuario con `id_grado` (FK → `grado`) |
+| `grado`             | `comun.grado`       | Catálogo de grados (grado, paralelo)     |
+| `estado`            | `admin_estado`      | Catálogo de estados (Activo, Inactivo, Eliminado...) |
+| `rol`               | `admin_rol`         | Catálogo de roles (Admin, Profesor, Estudiante) |
+| `materia`           | `info_materia`      | Materias (nombre, descripcion, nombre_normalizado) |
 
 ### Relaciones Importantes
 
 ```
-admin_usuario (1) ←→ (1) admin_profesor    [via id_usuario]
-admin_usuario (1) ←→ (1) admin_estudiante  [via id_usuario]
-admin_profesor (1) ←→ (N) profesor_materia  [via id_profesor]
-admin_estudiante (1) ←→ (N) estudiante_materia [via id_estudiante]
-info_materia (1) ←→ (N) profesor_materia   [via id_materia]
+usuario (1) ←→ (1) profesor        [via id_usuario]
+usuario (1) ←→ (1) estudiante      [via id_usuario]
+estudiante (1) ←→ (1) grado        [via id_grado]
+profesor (1) ←→ (N) profesor_materia  [via id_profesor]
+estudiante (1) ←→ (N) materia      [via id_estudiante]
+materia (1) ←→ (N) profesor_materia  [via id_materia]
 info_materia (1) ←→ (N) estudiante_materia [via id_materia]
 ```
 
@@ -175,6 +177,7 @@ info_materia (1) ←→ (N) estudiante_materia [via id_materia]
   "cedula": "0912345678",
   "username": "juanperez",
   "primer_nombre": "Juan",
+  "segundo_nombre": "Carlos",
   "apellido_paterno": "Pérez",
   "apellido_materno": "López",
   "correo": "juan@email.com",
@@ -187,6 +190,7 @@ info_materia (1) ←→ (N) estudiante_materia [via id_materia]
 ```json
 {
   "primer_nombre": "Juan",
+  "segundo_nombre": "Carlos",
   "apellido_paterno": "Pérez",
   "apellido_materno": "López",
   "cedula": "0912345678",
@@ -202,8 +206,9 @@ info_materia (1) ←→ (N) estudiante_materia [via id_materia]
   "data": [
     {
       "id": 1,
-      "nombreCompleto": "Juan Pérez López",
+      "nombreCompleto": "Juan Carlos Pérez López",
       "primer_nombre": "Juan",
+      "segundo_nombre": "Carlos",
       "apellido_paterno": "Pérez",
       "apellido_materno": "López",
       "cedula": "0912345678",

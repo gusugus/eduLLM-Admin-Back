@@ -7,7 +7,15 @@ class SubjectMapper {
       nombre: subject.nombre,
       descripcion: subject.descripcion || null,
       nombre_normalizado: subject.nombre_normalizado || null,
-      estado: subject.estadoNombre || null
+      id_estado: subject.id_estado,
+      estado: subject.estadoNombre || null,
+      id_grado: subject.id_grado || null,
+      grado: subject.grado ? {
+        id: subject.grado.id_grado,
+        grado: subject.grado.grado,
+        paralelo: subject.grado.paralelo,
+        nombre_completo: `${subject.grado.grado} ${subject.grado.paralelo || ''}`.trim()
+      } : null
     };
   }
 

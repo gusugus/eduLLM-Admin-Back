@@ -7,299 +7,40 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model admin_administrador {
-  id_administrador     Int           @id @default(autoincrement())
-  id_usuario           Int           @unique
-  nivel_acceso         Int?          @default(1)
-  fecha_creacion       DateTime?     @default(now()) @db.Timestamptz(6)
-  usuario_creacion     Int?
-  fecha_modificacion   DateTime?     @db.Timestamptz(6)
-  usuario_modificacion Int?
-  id_estado            Int
-  admin_usuario        admin_usuario @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction, map: "fk_administrador_usuario")
-}
-
-model admin_estado {
-  id_estado             Int                     @id @default(autoincrement())
-  codigo                String                  @unique @db.VarChar(3)
-  nombre                String                  @db.VarChar(50)
-  fecha_creacion        DateTime?               @default(now()) @db.Timestamptz(6)
-  usuario_creacion      Int?
-  fecha_modificacion    DateTime?               @db.Timestamptz(6)
-  usuario_modificacion  Int?
-  // 👇 AGREGA TODAS LAS RELACIONES INVERSAS
-  admin_parametro        admin_parametro[]
-  admin_periodo_lectivo  admin_periodo_lectivo[]
-  estudiante_materia     estudiante_materia[]
-  info_materia           info_materia[]
-  info_opcion            info_opcion[]
-  profesor_materia       profesor_materia[]
-  
-  @@map(name: "admin_estado")
-}
-
-model admin_estudiante {
-  id_estudiante           Int                       @id @default(autoincrement())
-  id_usuario              Int                       @unique
-  codigo_estudiante       String?                   @unique @db.VarChar(50)
-  grado                   String?                   @db.VarChar(50)
-  grupo                   String?                   @db.VarChar(20)
-  fecha_creacion          DateTime?                 @default(now()) @db.Timestamptz(6)
-  usuario_creacion        Int?
-  fecha_modificacion      DateTime?                 @db.Timestamptz(6)
-  usuario_modificacion    Int?
-  id_estado               Int
-  admin_usuario           admin_usuario             @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction, map: "fk_estudiante_usuario")
-  estudiante_materia      estudiante_materia[]
-  info_partida_estudiante info_partida_estudiante[]
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model admin_parametro {
-  id_parametro         Int          @id @default(autoincrement())
-  clave                String       @unique @db.VarChar(100)
-  valor                String
-  tipo                 String?      @default("string") @db.VarChar(20)
-  descripcion          String?
-  fecha_creacion       DateTime?    @default(now()) @db.Timestamptz(6)
-  usuario_creacion     Int?
-  fecha_modificacion   DateTime?    @db.Timestamptz(6)
-  usuario_modificacion Int?
-  id_estado            Int
-  admin_estado         admin_estado @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction)
-}
-
-model admin_periodo_lectivo {
-  id_periodo_lectivo   Int                  @id @default(autoincrement())
-  nombre               String               @db.VarChar(100)
-  fecha_inicio         DateTime             @db.Date
-  fecha_fin            DateTime             @db.Date
-  es_activo            Boolean?             @default(false)
-  fecha_creacion       DateTime?            @default(now()) @db.Timestamptz(6)
-  usuario_creacion     Int?
-  fecha_modificacion   DateTime?            @db.Timestamptz(6)
-  usuario_modificacion Int?
-  id_estado            Int
-  admin_estado         admin_estado         @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction)
-  estudiante_materia   estudiante_materia[]
-  profesor_materia     profesor_materia[]
-}
-
-model admin_profesor {
-  id_profesor          Int                @id @default(autoincrement())
-  id_usuario           Int                @unique
-  departamento         String?            @db.VarChar(100)
-  fecha_creacion       DateTime?          @default(now()) @db.Timestamptz(6)
-  usuario_creacion     Int?
-  fecha_modificacion   DateTime?          @db.Timestamptz(6)
-  usuario_modificacion Int?
-  id_estado            Int
-  admin_usuario        admin_usuario      @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction, map: "fk_profesor_usuario")
-  info_partida         info_partida[]
-  profesor_materia     profesor_materia[]
-}
-
-model admin_rol {
-  id_rol               Int       @id @default(autoincrement())
-  nombre               String    @unique @db.VarChar(50)
-  fecha_creacion       DateTime? @default(now()) @db.Timestamptz(6)
-  usuario_creacion     Int?
-  fecha_modificacion   DateTime? @db.Timestamptz(6)
-  usuario_modificacion Int?
-  id_estado            Int
-}
-
-model admin_usuario {
-  id_usuario           Int                  @id @default(autoincrement())
-  cedula               String               @unique @db.VarChar(20)
-  username             String               @unique @db.VarChar(100)
-  primer_nombre        String               @db.VarChar(100)
-  apellido_paterno     String               @db.VarChar(100)
-  apellido_materno     String?              @db.VarChar(100)
-  password_hash        String               @db.VarChar(255)
-  id_rol               Int
-  fecha_creacion       DateTime?            @default(now()) @db.Timestamptz(6)
-  usuario_creacion     Int?
-  fecha_modificacion   DateTime?            @db.Timestamptz(6)
-  usuario_modificacion Int?
-  id_estado            Int
-  reset_token          String?              @db.VarChar(255)
-  reset_token_expiry   DateTime?            @db.Timestamptz(6)
-  correo               String?
-  admin_administrador  admin_administrador?
-  admin_estudiante     admin_estudiante?
-  admin_profesor       admin_profesor?
-}
-
 model estudiante_materia {
-  id_estudiante_materia Int                   @id @default(autoincrement())
+  id_estudiante_materia Int             @id @default(autoincrement())
   id_estudiante         Int
   id_materia            Int
   id_periodo_lectivo    Int
-  fecha_inscripcion     DateTime?             @default(now()) @db.Timestamptz(6)
-  fecha_retiro          DateTime?             @db.Timestamptz(6)
+  fecha_inscripcion     DateTime?       @default(now()) @db.Timestamptz(6)
+  fecha_retiro          DateTime?       @db.Timestamptz(6)
   id_estado             Int
   usuario_creacion      Int?
-  fecha_creacion        DateTime?             @default(now()) @db.Timestamptz(6)
+  fecha_creacion        DateTime?       @default(now()) @db.Timestamptz(6)
   usuario_modificacion  Int?
-  fecha_modificacion    DateTime?             @db.Timestamptz(6)
-  admin_estado          admin_estado          @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction)
-  admin_estudiante      admin_estudiante      @relation(fields: [id_estudiante], references: [id_estudiante], onDelete: NoAction, onUpdate: NoAction)
-  info_materia          info_materia          @relation(fields: [id_materia], references: [id_materia], onDelete: NoAction, onUpdate: NoAction)
-  admin_periodo_lectivo admin_periodo_lectivo @relation(fields: [id_periodo_lectivo], references: [id_periodo_lectivo], onDelete: NoAction, onUpdate: NoAction)
+  fecha_modificacion    DateTime?       @db.Timestamptz(6)
+  admin_estado          estado          @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction)
+  admin_estudiante      estudiante      @relation(fields: [id_estudiante], references: [id_estudiante], onDelete: NoAction, onUpdate: NoAction)
+  info_materia          materia         @relation(fields: [id_materia], references: [id_materia], onDelete: NoAction, onUpdate: NoAction)
+  admin_periodo_lectivo periodo_lectivo @relation(fields: [id_periodo_lectivo], references: [id_periodo_lectivo], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([id_estudiante, id_materia, id_periodo_lectivo, id_estado])
 }
 
-model info_materia {
-  id_materia           Int                  @id @default(autoincrement())
-  nombre               String               @db.VarChar(100)
-  descripcion          String?
-  fecha_creacion       DateTime?            @default(now()) @db.Timestamptz(6)
-  usuario_creacion     Int?
-  fecha_modificacion   DateTime?            @db.Timestamptz(6)
-  usuario_modificacion Int?
-  id_estado            Int
-  nombre_normalizado   String?
-  estudiante_materia   estudiante_materia[]
-  admin_estado         admin_estado         @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction)
-  info_prueba          info_prueba[]
-  profesor_materia     profesor_materia[]
-}
-
-model info_opcion {
-  id_opcion        Int              @id @default(autoincrement())
-  id_pregunta      Int
-  texto            String
-  orden            Int
-  es_correcta      Boolean?         @default(false)
-  fecha_creacion   DateTime?        @default(now()) @db.Timestamptz(6)
-  usuario_creacion Int?
-  id_estado        Int
-  admin_estado     admin_estado     @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction)
-  info_pregunta    info_pregunta    @relation(fields: [id_pregunta], references: [id_pregunta], onDelete: NoAction, onUpdate: NoAction)
-  info_respuesta   info_respuesta[]
-}
-
-model info_partida {
-  id_partida              Int                       @id @default(autoincrement())
-  id_prueba               Int
-  codigo_acceso           String                    @unique @db.VarChar(6)
-  id_profesor             Int
-  estado_partida          String?                   @default("esperando") @db.VarChar(20)
-  iniciado_en             DateTime?                 @db.Timestamptz(6)
-  finalizado_en           DateTime?                 @db.Timestamptz(6)
-  fecha_creacion          DateTime?                 @default(now()) @db.Timestamptz(6)
-  usuario_creacion        Int?
-  fecha_modificacion      DateTime?                 @db.Timestamptz(6)
-  usuario_modificacion    Int?
-  id_estado               Int
-  admin_profesor          admin_profesor            @relation(fields: [id_profesor], references: [id_profesor], onDelete: NoAction, onUpdate: NoAction, map: "fk_partida_profesor")
-  info_prueba             info_prueba               @relation(fields: [id_prueba], references: [id_prueba], onDelete: NoAction, onUpdate: NoAction, map: "fk_partida_prueba")
-  info_partida_estudiante info_partida_estudiante[]
-}
-
-model info_partida_estudiante {
-  id_partida_estudiante Int              @id @default(autoincrement())
-  id_partida            Int
-  id_estudiante         Int
-  nickname_opcional     String?          @db.VarChar(100)
-  puntaje_total         Int?             @default(0)
-  respuestas_correctas  Int?             @default(0)
-  fecha_creacion        DateTime?        @default(now()) @db.Timestamptz(6)
-  usuario_creacion      Int?
-  fecha_modificacion    DateTime?        @db.Timestamptz(6)
-  usuario_modificacion  Int?
-  id_estado             Int
-  admin_estudiante      admin_estudiante @relation(fields: [id_estudiante], references: [id_estudiante], onDelete: NoAction, onUpdate: NoAction, map: "fk_parte_estudiante")
-  info_partida          info_partida     @relation(fields: [id_partida], references: [id_partida], onDelete: NoAction, onUpdate: NoAction, map: "fk_parte_partida")
-  info_respuesta        info_respuesta[]
-
-  @@unique([id_partida, id_estudiante])
-  @@unique([id_partida, id_estudiante], map: "uk_partida_estudiante")
-}
-
-model info_pregunta {
-  id_pregunta          Int              @id @default(autoincrement())
-  id_prueba            Int
-  texto                String
-  tipo                 String?          @default("single_choice") @db.VarChar(20)
-  cooldown             Int?             @default(5)
-  tiempo_limite        Int?             @default(30)
-  fecha_creacion       DateTime?        @default(now()) @db.Timestamptz(6)
-  usuario_creacion     Int?
-  fecha_modificacion   DateTime?        @db.Timestamptz(6)
-  usuario_modificacion Int?
-  id_estado            Int
-  image_url            String?
-  audio_url            String?
-  video_url            String?
-  info_opcion          info_opcion[]
-  info_prueba          info_prueba      @relation(fields: [id_prueba], references: [id_prueba], onDelete: NoAction, onUpdate: NoAction, map: "fk_pregunta_prueba")
-  info_respuesta       info_respuesta[]
-}
-
-model info_prueba {
-  id_prueba            Int             @id @default(autoincrement())
-  titulo               String          @db.VarChar(255)
-  descripcion          String?
-  id_profesor          Int
-  configuracion        Json?
-  fecha_creacion       DateTime?       @default(now()) @db.Timestamptz(6)
-  usuario_creacion     Int?
-  fecha_modificacion   DateTime?       @db.Timestamptz(6)
-  usuario_modificacion Int?
-  id_estado            Int
-  id_materia           Int?
-  info_partida         info_partida[]
-  info_pregunta        info_pregunta[]
-  info_materia         info_materia?   @relation(fields: [id_materia], references: [id_materia], onDelete: NoAction, onUpdate: NoAction, map: "fk_prueba_materia")
-}
-
-model info_respuesta {
-  id_respuesta            Int                     @id @default(autoincrement())
-  id_partida_estudiante   Int
-  id_pregunta             Int
-  respuesta_dada          Int?
-  tiempo_ms               Int?
-  puntaje_obtenido        Int?                    @default(0)
-  fecha_creacion          DateTime?               @default(now()) @db.Timestamptz(6)
-  usuario_creacion        Int?
-  fecha_modificacion      DateTime?               @db.Timestamptz(6)
-  usuario_modificacion    Int?
-  id_opcion_seleccionada  Int?
-  info_opcion             info_opcion?            @relation(fields: [id_opcion_seleccionada], references: [id_opcion], onDelete: NoAction, onUpdate: NoAction, map: "fk_respuesta_opcion")
-  info_partida_estudiante info_partida_estudiante @relation(fields: [id_partida_estudiante], references: [id_partida_estudiante], onDelete: NoAction, onUpdate: NoAction, map: "fk_respuesta_partida_estudiante")
-  info_pregunta           info_pregunta           @relation(fields: [id_pregunta], references: [id_pregunta], onDelete: NoAction, onUpdate: NoAction, map: "fk_respuesta_pregunta")
-}
-
-model info_retroalimentacion_llm {
-  id_retroalimentacion  Int       @id @default(autoincrement())
-  id_partida_estudiante Int
-  preguntas_falladas    Json?
-  prompt_enviado        String?
-  respuesta_llm         String?
-  modelo_usado          String?   @db.VarChar(100)
-  fecha_creacion        DateTime? @default(now()) @db.Timestamptz(6)
-  usuario_creacion      Int?
-  fecha_modificacion    DateTime? @db.Timestamptz(6)
-  usuario_modificacion  Int?
-}
-
 model profesor_materia {
-  id_profesor_materia   Int                   @id @default(autoincrement())
+  id_profesor_materia   Int             @id @default(autoincrement())
   id_profesor           Int
   id_materia            Int
-  fecha_asignacion      DateTime?             @default(now()) @db.Timestamptz(6)
+  fecha_asignacion      DateTime?       @default(now()) @db.Timestamptz(6)
   usuario_creacion      Int?
-  fecha_modificacion    DateTime?             @db.Timestamptz(6)
+  fecha_modificacion    DateTime?       @db.Timestamptz(6)
   usuario_modificacion  Int?
   id_estado             Int
   id_periodo_lectivo    Int
-  admin_estado          admin_estado          @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction)
-  info_materia          info_materia          @relation(fields: [id_materia], references: [id_materia], onDelete: NoAction, onUpdate: NoAction)
-  admin_periodo_lectivo admin_periodo_lectivo @relation(fields: [id_periodo_lectivo], references: [id_periodo_lectivo], onDelete: NoAction, onUpdate: NoAction)
-  admin_profesor        admin_profesor        @relation(fields: [id_profesor], references: [id_profesor], onDelete: NoAction, onUpdate: NoAction)
+  admin_estado          estado          @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction)
+  info_materia          materia         @relation(fields: [id_materia], references: [id_materia], onDelete: NoAction, onUpdate: NoAction)
+  admin_periodo_lectivo periodo_lectivo @relation(fields: [id_periodo_lectivo], references: [id_periodo_lectivo], onDelete: NoAction, onUpdate: NoAction)
+  admin_profesor        profesor        @relation(fields: [id_profesor], references: [id_profesor], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([id_profesor, id_materia])
   @@unique([id_profesor, id_materia, id_periodo_lectivo], map: "profesor_materia_periodo_unique")
@@ -311,4 +52,284 @@ model sessions {
   expire DateTime @db.Timestamp(6)
 
   @@index([expire], map: "IDX_session_expire")
+}
+
+model admi_parametro {
+  id_parametro         Int       @id(map: "admin_parametro_pkey") @default(autoincrement())
+  clave                String    @unique(map: "admin_parametro_clave_key") @db.VarChar(100)
+  valor                String
+  tipo                 String?   @default("string") @db.VarChar(20)
+  descripcion          String?
+  fecha_creacion       DateTime? @default(now()) @db.Timestamptz(6)
+  usuario_creacion     Int?
+  fecha_modificacion   DateTime? @db.Timestamptz(6)
+  usuario_modificacion Int?
+  id_estado            Int
+  estado               estado    @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction, map: "admin_parametro_id_estado_fkey")
+}
+
+model administrador {
+  id_administrador     Int       @id(map: "admin_administrador_pkey") @default(autoincrement())
+  id_usuario           Int       @unique(map: "admin_administrador_id_usuario_key")
+  nivel_acceso         Int?      @default(1)
+  fecha_creacion       DateTime? @default(now()) @db.Timestamptz(6)
+  usuario_creacion     Int?
+  fecha_modificacion   DateTime? @db.Timestamptz(6)
+  usuario_modificacion Int?
+  id_estado            Int
+  usuario              usuario   @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction, map: "fk_administrador_usuario")
+}
+
+model documento {
+  id_documento Int      @id @default(autoincrement())
+  ruta         String
+  id_usuario   Int?
+  id_estado    Int?
+  estado       estado?  @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction, map: "fk_documento_estado")
+  usuario      usuario? @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction, map: "fk_documento_usuario")
+}
+
+model estado {
+  id_estado            Int                  @id(map: "admin_estado_pkey") @default(autoincrement())
+  codigo               String               @unique(map: "admin_estado_codigo_key") @db.VarChar(3)
+  nombre               String               @db.VarChar(50)
+  fecha_creacion       DateTime?            @default(now()) @db.Timestamptz(6)
+  usuario_creacion     Int?
+  fecha_modificacion   DateTime?            @db.Timestamptz(6)
+  usuario_modificacion Int?
+  admi_parametro       admi_parametro[]
+  documento            documento[]
+  estudiante_materia   estudiante_materia[]
+  materia              materia[]
+  opcion               opcion[]
+  periodo_lectivo      periodo_lectivo[]
+  profesor_materia     profesor_materia[]
+}
+
+model estudiante {
+  id_estudiante        Int                  @id(map: "admin_estudiante_pkey") @default(autoincrement())
+  id_usuario           Int                  @unique(map: "admin_estudiante_id_usuario_key")
+  fecha_creacion       DateTime?            @default(now()) @db.Timestamptz(6)
+  usuario_creacion     Int?
+  fecha_modificacion   DateTime?            @db.Timestamptz(6)
+  usuario_modificacion Int?
+  id_estado            Int
+  id_grado             Int?
+  usuario              usuario              @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction, map: "fk_estudiante_usuario")
+  estudiante_materia   estudiante_materia[]
+  partida_estudiante   partida_estudiante[]
+}
+
+model grado {
+  grado                Int?
+  paralelo             String?   @db.VarChar(1)
+  id_grado             Int       @id(map: "grado_pk")
+  fecha_creacion       DateTime? @default(now()) @db.Timestamptz(6)
+  usuario_creacion     Int?
+  fecha_modificacion   DateTime? @db.Timestamptz(6)
+  usuario_modificacion Int?
+  id_estado            Int?      @default(1)
+  materia              materia[]
+}
+
+model materia {
+  id_materia           Int                  @id(map: "info_materia_pkey") @default(autoincrement())
+  nombre               String               @db.VarChar(100)
+  descripcion          String?
+  fecha_creacion       DateTime?            @default(now()) @db.Timestamptz(6)
+  usuario_creacion     Int?
+  fecha_modificacion   DateTime?            @db.Timestamptz(6)
+  usuario_modificacion Int?
+  id_estado            Int
+  nombre_normalizado   String?
+  id_grado             Int?
+  estudiante_materia   estudiante_materia[]
+  grado                grado?               @relation(fields: [id_grado], references: [id_grado], onDelete: NoAction, onUpdate: NoAction, map: "fk_materia_grado")
+  estado               estado               @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction, map: "info_materia_id_estado_fkey")
+  profesor_materia     profesor_materia[]
+  prueba               prueba[]
+
+  @@unique([nombre_normalizado, id_grado], map: "uq_materia_nombre_grado")
+}
+
+model opcion {
+  id_opcion        Int         @id(map: "info_opcion_pkey") @default(autoincrement())
+  id_pregunta      Int
+  texto            String
+  orden            Int
+  es_correcta      Boolean?    @default(false)
+  fecha_creacion   DateTime?   @default(now()) @db.Timestamptz(6)
+  usuario_creacion Int?
+  id_estado        Int
+  estado           estado      @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction, map: "info_opcion_id_estado_fkey")
+  pregunta         pregunta    @relation(fields: [id_pregunta], references: [id_pregunta], onDelete: NoAction, onUpdate: NoAction, map: "info_opcion_id_pregunta_fkey")
+  respuesta        respuesta[]
+}
+
+model partida {
+  id_partida           Int                  @id(map: "info_partida_pkey") @default(autoincrement())
+  id_prueba            Int
+  codigo_acceso        String               @unique(map: "info_partida_codigo_acceso_key") @db.VarChar(6)
+  id_profesor          Int
+  estado_partida       String?              @default("esperando") @db.VarChar(20)
+  iniciado_en          DateTime?            @db.Timestamptz(6)
+  finalizado_en        DateTime?            @db.Timestamptz(6)
+  fecha_creacion       DateTime?            @default(now()) @db.Timestamptz(6)
+  usuario_creacion     Int?
+  fecha_modificacion   DateTime?            @db.Timestamptz(6)
+  usuario_modificacion Int?
+  id_estado            Int
+  profesor             profesor             @relation(fields: [id_profesor], references: [id_profesor], onDelete: NoAction, onUpdate: NoAction, map: "fk_partida_profesor")
+  prueba               prueba               @relation(fields: [id_prueba], references: [id_prueba], onDelete: NoAction, onUpdate: NoAction, map: "fk_partida_prueba")
+  partida_estudiante   partida_estudiante[]
+}
+
+model partida_estudiante {
+  id_partida_estudiante Int         @id(map: "info_partida_estudiante_pkey") @default(autoincrement())
+  id_partida            Int
+  id_estudiante         Int
+  nickname_opcional     String?     @db.VarChar(100)
+  puntaje_total         Int?        @default(0)
+  respuestas_correctas  Int?        @default(0)
+  fecha_creacion        DateTime?   @default(now()) @db.Timestamptz(6)
+  usuario_creacion      Int?
+  fecha_modificacion    DateTime?   @db.Timestamptz(6)
+  usuario_modificacion  Int?
+  id_estado             Int
+  estudiante            estudiante  @relation(fields: [id_estudiante], references: [id_estudiante], onDelete: NoAction, onUpdate: NoAction, map: "fk_parte_estudiante")
+  partida               partida     @relation(fields: [id_partida], references: [id_partida], onDelete: NoAction, onUpdate: NoAction, map: "fk_parte_partida")
+  respuesta             respuesta[]
+
+  @@unique([id_partida, id_estudiante], map: "info_partida_estudiante_id_partida_id_estudiante_key")
+  @@unique([id_partida, id_estudiante], map: "uk_partida_estudiante")
+}
+
+model periodo_lectivo {
+  id_periodo_lectivo   Int                  @id(map: "admin_periodo_lectivo_pkey") @default(autoincrement())
+  nombre               String               @db.VarChar(100)
+  fecha_inicio         DateTime             @db.Date
+  fecha_fin            DateTime             @db.Date
+  es_activo            Boolean?             @default(false)
+  fecha_creacion       DateTime?            @default(now()) @db.Timestamptz(6)
+  usuario_creacion     Int?
+  fecha_modificacion   DateTime?            @db.Timestamptz(6)
+  usuario_modificacion Int?
+  id_estado            Int
+  estudiante_materia   estudiante_materia[]
+  estado               estado               @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction, map: "admin_periodo_lectivo_id_estado_fkey")
+  profesor_materia     profesor_materia[]
+}
+
+model pregunta {
+  id_pregunta          Int         @id(map: "info_pregunta_pkey") @default(autoincrement())
+  id_prueba            Int
+  texto                String
+  tipo                 String?     @default("single_choice") @db.VarChar(20)
+  cooldown             Int?        @default(5)
+  tiempo_limite        Int?        @default(30)
+  fecha_creacion       DateTime?   @default(now()) @db.Timestamptz(6)
+  usuario_creacion     Int?
+  fecha_modificacion   DateTime?   @db.Timestamptz(6)
+  usuario_modificacion Int?
+  id_estado            Int
+  image_url            String?
+  audio_url            String?
+  video_url            String?
+  opcion               opcion[]
+  prueba               prueba      @relation(fields: [id_prueba], references: [id_prueba], onDelete: NoAction, onUpdate: NoAction, map: "fk_pregunta_prueba")
+  respuesta            respuesta[]
+}
+
+model profesor {
+  id_profesor          Int                @id(map: "admin_profesor_pkey") @default(autoincrement())
+  id_usuario           Int                @unique(map: "admin_profesor_id_usuario_key")
+  fecha_creacion       DateTime?          @default(now()) @db.Timestamptz(6)
+  usuario_creacion     Int?
+  fecha_modificacion   DateTime?          @db.Timestamptz(6)
+  usuario_modificacion Int?
+  id_estado            Int
+  partida              partida[]
+  usuario              usuario            @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction, map: "fk_profesor_usuario")
+  profesor_materia     profesor_materia[]
+}
+
+model prueba {
+  id_prueba            Int        @id(map: "info_prueba_pkey") @default(autoincrement())
+  titulo               String     @db.VarChar(255)
+  descripcion          String?
+  id_profesor          Int
+  configuracion        Json?
+  fecha_creacion       DateTime?  @default(now()) @db.Timestamptz(6)
+  usuario_creacion     Int?
+  fecha_modificacion   DateTime?  @db.Timestamptz(6)
+  usuario_modificacion Int?
+  id_estado            Int
+  id_materia           Int?
+  partida              partida[]
+  pregunta             pregunta[]
+  materia              materia?   @relation(fields: [id_materia], references: [id_materia], onDelete: NoAction, onUpdate: NoAction, map: "fk_prueba_materia")
+}
+
+model respuesta {
+  id_respuesta           Int                @id(map: "info_respuesta_pkey") @default(autoincrement())
+  id_partida_estudiante  Int
+  id_pregunta            Int
+  respuesta_dada         Int?
+  tiempo_ms              Int?
+  puntaje_obtenido       Int?               @default(0)
+  fecha_creacion         DateTime?          @default(now()) @db.Timestamptz(6)
+  usuario_creacion       Int?
+  fecha_modificacion     DateTime?          @db.Timestamptz(6)
+  usuario_modificacion   Int?
+  id_opcion_seleccionada Int?
+  opcion                 opcion?            @relation(fields: [id_opcion_seleccionada], references: [id_opcion], onDelete: NoAction, onUpdate: NoAction, map: "fk_respuesta_opcion")
+  partida_estudiante     partida_estudiante @relation(fields: [id_partida_estudiante], references: [id_partida_estudiante], onDelete: NoAction, onUpdate: NoAction, map: "fk_respuesta_partida_estudiante")
+  pregunta               pregunta           @relation(fields: [id_pregunta], references: [id_pregunta], onDelete: NoAction, onUpdate: NoAction, map: "fk_respuesta_pregunta")
+}
+
+model retroalimentacion_llm {
+  id_retroalimentacion  Int       @id(map: "info_retroalimentacion_llm_pkey") @default(autoincrement())
+  id_partida_estudiante Int
+  preguntas_falladas    Json?
+  prompt_enviado        String?
+  respuesta_llm         String?
+  modelo_usado          String?   @db.VarChar(100)
+  fecha_creacion        DateTime? @default(now()) @db.Timestamptz(6)
+  usuario_creacion      Int?
+  fecha_modificacion    DateTime? @db.Timestamptz(6)
+  usuario_modificacion  Int?
+}
+
+model rol {
+  id_rol               Int       @id(map: "admin_rol_pkey") @default(autoincrement())
+  nombre               String    @unique(map: "admin_rol_nombre_key") @db.VarChar(50)
+  fecha_creacion       DateTime? @default(now()) @db.Timestamptz(6)
+  usuario_creacion     Int?
+  fecha_modificacion   DateTime? @db.Timestamptz(6)
+  usuario_modificacion Int?
+  id_estado            Int
+}
+
+model usuario {
+  id_usuario           Int            @id(map: "admin_usuario_pkey") @default(autoincrement())
+  cedula               String         @db.VarChar(20)
+  username             String         @unique(map: "admin_usuario_username_key") @db.VarChar(100)
+  primer_nombre        String         @db.VarChar(100)
+  apellido_paterno     String         @db.VarChar(100)
+  apellido_materno     String?        @db.VarChar(100)
+  password_hash        String         @db.VarChar(255)
+  id_rol               Int
+  fecha_creacion       DateTime?      @default(now()) @db.Timestamptz(6)
+  usuario_creacion     Int?
+  fecha_modificacion   DateTime?      @db.Timestamptz(6)
+  usuario_modificacion Int?
+  id_estado            Int
+  reset_token          String?        @db.VarChar(255)
+  reset_token_expiry   DateTime?      @db.Timestamptz(6)
+  correo               String?
+  segundo_nombre       String?        @db.VarChar(100)
+  administrador        administrador?
+  documento            documento[]
+  estudiante           estudiante?
+  profesor             profesor?
 }

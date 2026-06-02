@@ -59,6 +59,7 @@ class EntityMapper {
       id: entity.id_[entity],
       nombreCompleto: this.getNombreCompleto(entity.admin_usuario),
       primer_nombre: entity.admin_usuario.primer_nombre,
+      segundo_nombre: entity.admin_usuario.segundo_nombre,
       apellido_paterno: entity.admin_usuario.apellido_paterno,
       apellido_materno: entity.admin_usuario.apellido_materno,
       cedula: entity.admin_usuario.cedula,
@@ -78,8 +79,8 @@ class EntityMapper {
   }
 
   static getNombreCompleto(usuario) {
-    const { primer_nombre, apellido_paterno, apellido_materno } = usuario;
-    return `${primer_nombre} ${apellido_paterno} ${apellido_materno || ''}`.trim();
+    const { primer_nombre, segundo_nombre, apellido_paterno, apellido_materno } = usuario;
+    return `${primer_nombre} ${segundo_nombre || ''} ${apellido_paterno} ${apellido_materno || ''}`.trim();
   }
 }
 
@@ -138,6 +139,7 @@ class EntityService {
           cedula: data.cedula,
           username: data.username,
           primer_nombre: data.primer_nombre,
+          segundo_nombre: data.segundo_nombre,
           apellido_paterno: data.apellido_paterno,
           apellido_materno: data.apellido_materno,
           correo: data.correo,
@@ -152,7 +154,7 @@ class EntityService {
       });
       return entity;
     });
-    logger.info(`Created ${entity} with user: ${result.admin_usuario.primer_nombre}`);
+    logger.info(`Created ${entity} with user: ${result.admin_usuario.primer_nombre} ${result.admin_usuario.segundo_nombre || ''}`);
     return { id: result.id_[entity], ... };
   }
 
@@ -162,6 +164,7 @@ class EntityService {
     // Separar datos de usuario vs entidad
     const userFields = {};
     if (data.primer_nombre !== undefined) userFields.primer_nombre = data.primer_nombre;
+    if (data.segundo_nombre !== undefined) userFields.segundo_nombre = data.segundo_nombre;
     // ... otros campos de admin_usuario
     // Si hay cambios en usuario → $transaction, si no → update directo
     // (seguir patrón de professor.service.js)
@@ -176,7 +179,7 @@ module.exports = new EntityService();
 ```
 
 **Reglas:**
-- `createWithUser()`: hashear password con bcrypt (10 rounds), crear `admin_usuario` + entidad en transacción
+- `createWithUser()`: recibir y pasar `segundo_nombre` opcional; hashear password con bcrypt (10 rounds), crear `admin_usuario` + entidad en transacción
 - `findAll()`: consultar → enriquecer con estado/rol → mapear a DTO
 - `update()`: verificar existencia primero, separar campos de usuario vs entidad
 - `delete()`: delegar al repository (soft delete)
@@ -256,6 +259,7 @@ const { z } = require('zod');
 const createSchema = z.object({
   cedula: z.string().length(10),
   primer_nombre: z.string().min(2),
+  segundo_nombre: z.string().optional(),
   username: z.string().min(3),
   password: z.string().min(6),
   // campos específicos de la entidad

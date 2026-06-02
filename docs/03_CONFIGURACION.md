@@ -44,7 +44,7 @@ CMD ["npm", "start"]
 
 El orden de middleware en Express es:
 
-1. `helmet()` — Headers de seguridad
+1. `helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } })` — Headers de seguridad (permite cargar imágenes estáticas desde otros orígenes, necesario para fotos de perfil)
 2. `cors()` — Cross-Origin Resource Sharing (abierto)
 3. `rateLimit()` — Máximo 100 requests por 15 minutos
 4. `logRequest` — Logger de cada request con duración

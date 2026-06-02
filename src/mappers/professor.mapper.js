@@ -1,17 +1,23 @@
+const ESTADOS = require('../constants/estados');
+
 class ProfessorMapper {
   static toResponse(professor, includeMaterias = false) {
     if (!professor) return null;
 
+    const docActivo = professor.usuario.documento?.find(d => d.id_estado === ESTADOS.ACTIVO);
+
     const baseResponse = {
       id: professor.id_profesor,
-      nombreCompleto: this.getNombreCompleto(professor.admin_usuario),
-      primer_nombre: professor.admin_usuario.primer_nombre,
-      apellido_paterno: professor.admin_usuario.apellido_paterno,
-      apellido_materno: professor.admin_usuario.apellido_materno,
-      cedula: professor.admin_usuario.cedula,
-      correo: professor.admin_usuario.correo,
-      username: professor.admin_usuario.username,
-      departamento: professor.departamento,
+      id_usuario: professor.usuario.id_usuario,
+      nombreCompleto: this.getNombreCompleto(professor.usuario),
+      primer_nombre: professor.usuario.primer_nombre,
+      segundo_nombre: professor.usuario.segundo_nombre,
+      apellido_paterno: professor.usuario.apellido_paterno,
+      apellido_materno: professor.usuario.apellido_materno,
+      cedula: professor.usuario.cedula,
+      correo: professor.usuario.correo,
+      username: professor.usuario.username,
+      foto_url: docActivo ? `http://localhost:${process.env.PORT || 8002}/${docActivo.ruta}` : null,
       estado: professor.estadoNombre || null,
       rol: professor.rolNombre || null
     };
@@ -33,8 +39,8 @@ class ProfessorMapper {
   }
 
   static getNombreCompleto(usuario) {
-    const { primer_nombre, apellido_paterno, apellido_materno } = usuario;
-    return `${primer_nombre} ${apellido_paterno} ${apellido_materno || ''}`.trim();
+    const { primer_nombre, segundo_nombre, apellido_paterno, apellido_materno } = usuario;
+    return `${primer_nombre} ${segundo_nombre || ''} ${apellido_paterno} ${apellido_materno || ''}`.trim();
   }
 }
 

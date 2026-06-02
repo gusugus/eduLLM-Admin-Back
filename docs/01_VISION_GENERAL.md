@@ -1,12 +1,15 @@
 # 1. Visión General
 
-Panel de administración backend que gestiona **Profesores, Estudiantes y Materias** de la plataforma educativa eduLLM. Sigue principios **SOLID** con una arquitectura por capas.
+Panel de administración backend que gestiona **Profesores, Estudiantes, Materias y Asignaciones** de la plataforma educativa eduLLM. Sigue principios **SOLID** con una arquitectura por capas.
 
 ## Puertos y URLs
 
 | Servicio   | Puerto | Base URL          |
 |-----------|--------|-------------------|
-| Backend   | `8002` | `http://localhost:8002/api/v1` |
+| Gateway    | `8085` | `http://localhost:8085/api` |
+| Backend    | `8002` | `http://localhost:8002/api/admin` |
+
+> El frontend siempre apunta al **gateway (8085)**, nunca directamente al backend. El gateway maneja autenticación (cookies HttpOnly) y enruta `/api/*` al backend.
 
 ## Arquitectura por Capas
 

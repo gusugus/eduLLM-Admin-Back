@@ -4,7 +4,9 @@
 BACK/
 ├── server.js                          # Entry point: levanta Express en PORT
 ├── Dockerfile                         # Multi-stage Docker build (node:18-alpine)
+├── docker-compose.yml                 # Orquestación: backend + base de datos
 ├── package.json                       # Dependencias y scripts
+├── nodemon.json                       # Configuración de file watching
 ├── .env                               # Variables de entorno
 ├── .gitignore
 ├── prisma/
@@ -13,39 +15,45 @@ BACK/
 │   ├── combined.log                   # Todos los logs
 │   └── error.log                      # Solo errores
 └── src/
-    ├── app.js                         # Configuración Express (middleware, rutas)
+    ├── app.js                         # Configuración Express (middleware, rutas montadas en /api/admin)
     ├── config/
     │   ├── index.js                   # Exporta variables de entorno (port, jwtSecret, env)
     │   ├── logger.js                  # Winston logger (console + archivos)
     │   └── prisma.js                  # Singleton PrismaClient
     ├── controllers/
-    │   ├── professor.controller.js    # ✅ FUNCIONAL - CRUD completo
-    │   ├── student.controller.js      # ⚠️ STUB - Solo estructura
-    │   ├── subject.controller.js      # ⚠️ STUB - Solo estructura
-    │   └── user.controller.js         # ✅ FUNCIONAL - check/suggest username
+    │   ├── professor.controller.js    # ✅ CRUD completo
+    │   ├── student.controller.js      # ✅ CRUD completo
+    │   ├── subject.controller.js      # ✅ CRUD completo
+    │   ├── assignment.controller.js   # ✅ Asignaciones (profesor-materia, estudiante-materia)
+    │   └── user.controller.js         # ✅ check/suggest username
     ├── mappers/
-    │   └── professor.mapper.js        # ✅ Transforma profesor DB → DTO
+    │   ├── professor.mapper.js        # ✅ Transforma profesor DB → DTO
+    │   ├── student.mapper.js          # ✅ Transforma estudiante DB → DTO
+    │   └── subject.mapper.js          # ✅ Transforma materia DB → DTO
     ├── middlewares/
-    │   ├── auth.middleware.js          # JWT verification (deshabilitado en rutas)
+    │   ├── auth.middleware.js          # JWT decoder no-bloqueante (enriquece req.user si hay token)
     │   ├── errorHandler.js            # Captura errores y responde JSON
     │   └── logger.middleware.js        # Logea cada request con duración
     ├── repositories/
-    │   ├── professor.repository.js    # ✅ FUNCIONAL - Prisma queries reales
-    │   ├── student.repository.js      # ⚠️ STUB - Retorna datos mock
-    │   └── subject.repository.js      # ⚠️ STUB - Retorna datos mock
+    │   ├── professor.repository.js    # ✅ Prisma queries reales
+    │   ├── student.repository.js      # ✅ Prisma queries reales
+    │   └── subject.repository.js      # ✅ Prisma queries reales
     ├── routes/
-    │   ├── index.js                   # Router central: monta /professors, /students, /subjects, /users
+    │   ├── index.js                   # Router central: monta /professors, /students, /subjects, /users, /assignments
     │   └── v1/
     │       ├── professor.routes.js    # GET/POST / , GET/PUT/DELETE /:id
     │       ├── student.routes.js      # GET/POST / , GET/PUT/DELETE /:id
     │       ├── subject.routes.js      # GET/POST / , GET/PUT/DELETE /:id
-    │       └── user.routes.js         # POST /check-username, /suggest-username, GET /, /:id
+    │       ├── user.routes.js         # POST /check-username, /suggest-username
+    │       └── assignment.routes.js   # POST /professor-subject, /student-subject, GET, DELETE
     ├── services/
-    │   ├── professor.service.js       # ✅ FUNCIONAL - Lógica completa con transacciones
-    │   ├── student.service.js         # ⚠️ STUB - Delega a repository stub
-    │   ├── subject.service.js         # ⚠️ STUB - Delega a repository stub
-    │   ├── estado.service.js          # ✅ FUNCIONAL - Lookup de estados desde admin_estado
-    │   └── rol.service.js             # ✅ FUNCIONAL - Lookup de roles desde admin_rol
+    │   ├── professor.service.js       # ✅ CRUD completo con transacciones
+    │   ├── student.service.js         # ✅ CRUD completo con transacciones
+    │   ├── subject.service.js         # ✅ CRUD completo
+    │   ├── assignment.service.js      # ✅ Asignaciones batch con reemplazo
+    │   ├── periodo.service.js         # ✅ Período lectivo activo
+    │   ├── estado.service.js          # ✅ Lookup de estados desde admin_estado
+    │   └── rol.service.js             # ✅ Lookup de roles desde admin_rol
     ├── types/                         # (vacío, reservado para futuro)
     └── utils/
         ├── AppError.js                # Clase de error operacional con statusCode

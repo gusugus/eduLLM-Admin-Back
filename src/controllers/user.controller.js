@@ -1,10 +1,12 @@
 const prisma = require('../config/prisma');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
+const { sanitizeUsername, sanitizeName } = require('../utils/sanitize');
 
 // Verificar si un username está disponible
 exports.checkUsername = catchAsync(async (req, res) => {
-  const { username, excludeUserId } = req.body;
+  const username = sanitizeUsername(req.body.username);
+  const { excludeUserId } = req.body;
   
   if (!username) {
     throw new AppError('Username es requerido', 400);
@@ -15,7 +17,7 @@ exports.checkUsername = catchAsync(async (req, res) => {
     where.id_usuario = { not: parseInt(excludeUserId) };
   }
   
-  const existingUser = await prisma.admin_usuario.findFirst({ where });
+  const existingUser = await prisma.usuario.findFirst({ where });
   
   res.json({ 
     available: !existingUser,
@@ -25,7 +27,8 @@ exports.checkUsername = catchAsync(async (req, res) => {
 
 // Sugerir username basado en nombre y apellido (devuelve el PRIMERO disponible)
 exports.suggestUsername = catchAsync(async (req, res) => {
-  let { primerNombre, apellidoPaterno } = req.body;
+  const primerNombre = sanitizeName(req.body.primerNombre || '');
+  const apellidoPaterno = sanitizeName(req.body.apellidoPaterno || '');
   
   if (!primerNombre || !apellidoPaterno) {
     throw new AppError('Nombre y apellido son requeridos', 400);
@@ -35,15 +38,15 @@ exports.suggestUsername = catchAsync(async (req, res) => {
   const normalize = (str) => {
     return str.toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // Eliminar tildes
+      .replace(/[\u0300-\u036f]/g, '')
       .replace(/ñ/g, 'n')
-      .replace(/[^a-z0-9]/g, ''); // Solo letras y números
+      .replace(/[^a-z0-9]/g, '');
   };
   
   const base = `${normalize(primerNombre)}${normalize(apellidoPaterno)}`;
   
   // Buscar todos los usernames que comiencen con la base
-  const existingUsers = await prisma.admin_usuario.findMany({
+  const existingUsers = await prisma.usuario.findMany({
     where: {
       username: {
         startsWith: base
@@ -73,12 +76,13 @@ exports.suggestUsername = catchAsync(async (req, res) => {
 
 // Obtener todos los usuarios
 exports.getAllUsers = catchAsync(async (req, res) => {
-  const users = await prisma.admin_usuario.findMany({
+  const users = await prisma.usuario.findMany({
     select: {
       id_usuario: true,
       cedula: true,
       username: true,
       primer_nombre: true,
+      segundo_nombre: true,
       apellido_paterno: true,
       apellido_materno: true,
       correo: true,
@@ -94,13 +98,14 @@ exports.getAllUsers = catchAsync(async (req, res) => {
 exports.getUserById = catchAsync(async (req, res) => {
   const { id } = req.params;
   
-  const user = await prisma.admin_usuario.findUnique({
+  const user = await prisma.usuario.findUnique({
     where: { id_usuario: parseInt(id) },
     select: {
       id_usuario: true,
       cedula: true,
       username: true,
       primer_nombre: true,
+      segundo_nombre: true,
       apellido_paterno: true,
       apellido_materno: true,
       correo: true,

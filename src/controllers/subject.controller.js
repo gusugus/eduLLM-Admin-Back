@@ -16,13 +16,13 @@ exports.getSubjectById = catchAsync(async (req, res) => {
 
 exports.createSubject = catchAsync(async (req, res) => {
   const newItem = await subjectService.create(req.body);
-  res.status(201).json({ success: true, data: newItem });
+  res.status(201).json({ success: true, message: `Materia "${newItem.nombre}" creada exitosamente`, data: newItem });
 });
 
 exports.updateSubject = catchAsync(async (req, res) => {
   const { id } = req.params;
   const updated = await subjectService.update(id, req.body);
-  res.json({ success: true, data: updated });
+  res.json({ success: true, message: `Materia "${updated.nombre}" actualizada exitosamente`, data: updated });
 });
 
 exports.deleteSubject = catchAsync(async (req, res) => {
