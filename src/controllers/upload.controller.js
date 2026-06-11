@@ -2,7 +2,6 @@ const prisma = require('../config/prisma');
 const logger = require('../config/logger');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
-const ESTADOS = require('../constants/estados');
 
 exports.uploadProfilePhoto = catchAsync(async (req, res) => {
   if (!req.file) {
@@ -14,17 +13,15 @@ exports.uploadProfilePhoto = catchAsync(async (req, res) => {
 
   const result = await prisma.$transaction(async (tx) => {
     if (idUsuario) {
-      await tx.documento.updateMany({
-        where: { id_usuario: idUsuario, id_estado: ESTADOS.ACTIVO },
-        data: { id_estado: ESTADOS.ELIMINADO }
+      await tx.tbl_m_archivo.updateMany({
+        where: { usuario_id: idUsuario, estado: true },
+        data: { estado: false }
       });
     }
 
-    const documento = await tx.documento.create({
-      data: { ruta, id_usuario: idUsuario, id_estado: ESTADOS.ACTIVO }
+    return await tx.tbl_m_archivo.create({
+      data: { ruta, usuario_id: idUsuario, estado: true }
     });
-
-    return documento;
   });
 
   logger.info(`Foto subida: ${ruta}, id_documento: ${result.id_documento}, usuario: ${idUsuario}`);

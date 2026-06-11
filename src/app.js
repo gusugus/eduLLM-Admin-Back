@@ -12,12 +12,8 @@ const routes = require('./routes');
 const path = require('path');
 const app = express();
 
-// Seguridad básica (puede moverse al gateway)
+// Seguridad básica (CORS lo maneja el gateway)
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
   max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 200,

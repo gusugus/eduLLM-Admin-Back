@@ -2,14 +2,14 @@ const prisma = require('../config/prisma');
 const ESTADOS = require('../constants/estados');
 
 class StudentRepository {
-  async findAll(estadosPermitidos = [ESTADOS.ACTIVO]) {
-    const where = estadosPermitidos.length > 0 ? { id_estado: { in: estadosPermitidos } } : {};
+  async findAll(soloActivos = true) {
+    const where = soloActivos ? { estado: true } : {};
 
-    return await prisma.estudiante.findMany({
+    return await prisma.tbl_m_estudiante.findMany({
       select: {
         id_estudiante: true,
-        id_estado: true,
-        usuario: {
+        estado: true,
+        tbl_m_usuario: {
           select: {
             id_usuario: true,
             cedula: true,
@@ -19,10 +19,10 @@ class StudentRepository {
             apellido_paterno: true,
             apellido_materno: true,
             correo: true,
-            id_rol: true,
-            documento: {
-              where: { id_estado: ESTADOS.ACTIVO },
-              select: { id_documento: true, ruta: true, id_estado: true }
+            rol_id: true,
+            tbl_m_archivo: {
+              where: { estado: true },
+              select: { id_documento: true, ruta: true, estado: true }
             }
           }
         }
@@ -32,13 +32,13 @@ class StudentRepository {
   }
 
   async findById(id) {
-    return await prisma.estudiante.findUnique({
+    return await prisma.tbl_m_estudiante.findUnique({
       where: { id_estudiante: parseInt(id) },
       select: {
         id_estudiante: true,
         id_usuario: true,
-        id_estado: true,
-        usuario: {
+        estado: true,
+        tbl_m_usuario: {
           select: {
             id_usuario: true,
             cedula: true,
@@ -48,18 +48,18 @@ class StudentRepository {
             apellido_paterno: true,
             apellido_materno: true,
             correo: true,
-            id_rol: true,
-            documento: {
-              where: { id_estado: ESTADOS.ACTIVO },
-              select: { id_documento: true, ruta: true, id_estado: true }
+            rol_id: true,
+            tbl_m_archivo: {
+              where: { estado: true },
+              select: { id_documento: true, ruta: true, estado: true }
             }
           }
         },
-        estudiante_materia: {
+        tbl_m_estudiante_materia: {
           select: {
             id_estudiante_materia: true,
             id_periodo_lectivo: true,
-            info_materia: {
+            tbl_m_materia: {
               select: {
                 id_materia: true,
                 nombre: true,
@@ -73,16 +73,16 @@ class StudentRepository {
   }
 
   async create(data) {
-    return await prisma.estudiante.create({
+    return await prisma.tbl_m_estudiante.create({
       data: {
         id_usuario: data.id_usuario,
-        id_estado: data.id_estado || ESTADOS.ACTIVO,
+        estado: true,
         usuario_creacion: data.usuario_creacion || null
       },
       select: {
         id_estudiante: true,
         id_usuario: true,
-        usuario: {
+        tbl_m_usuario: {
           select: {
             id_usuario: true,
             primer_nombre: true,
@@ -95,17 +95,17 @@ class StudentRepository {
   }
 
   async update(id, data) {
-    return await prisma.estudiante.update({
+    return await prisma.tbl_m_estudiante.update({
       where: { id_estudiante: parseInt(id) },
       data: {
-        id_estado: data.id_estado,
+        estado: data.estado,
         usuario_modificacion: data.usuario_modificacion || null,
         fecha_modificacion: new Date()
       },
       select: {
         id_estudiante: true,
         id_usuario: true,
-        usuario: {
+        tbl_m_usuario: {
           select: {
             id_usuario: true,
             primer_nombre: true,
@@ -118,10 +118,10 @@ class StudentRepository {
   }
 
   async delete(id, usuarioModificacion = null) {
-    return await prisma.estudiante.update({
+    return await prisma.tbl_m_estudiante.update({
       where: { id_estudiante: parseInt(id) },
       data: {
-        id_estado: ESTADOS.ELIMINADO,
+        estado: false,
         fecha_modificacion: new Date(),
         usuario_modificacion: usuarioModificacion
       }

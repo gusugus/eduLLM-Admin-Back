@@ -5,20 +5,18 @@ const prisma = require('../config/prisma');
 
 const logger = require('../config/logger');
 const AppError = require('../utils/AppError');
-const ESTADOS = require('../constants/estados');
 
 const SubjectMapper = require('../mappers/subject.mapper');
 const { sanitizeText, sanitizeString } = require('../utils/sanitize');
 
 class SubjectService {
   async findAll() {
-    const subjects = await subjectRepository.findAll([ESTADOS.ACTIVO, ESTADOS.ELIMINADO]);
+    const subjects = await subjectRepository.findAll(false);
 
-    const enriched = await Promise.all(subjects.map(async (sub) => {
-      const estadoNombre = await estadoService.getNombreEstado(sub.id_estado);
-      sub.estadoNombre = estadoNombre;
+    const enriched = subjects.map((sub) => {
+      sub.estadoNombre = estadoService.getNombreEstado(sub.estado);
       return sub;
-    }));
+    });
 
     logger.info(`Listadas ${enriched.length} materias`);
     return SubjectMapper.toResponseList(enriched);
@@ -28,8 +26,7 @@ class SubjectService {
     const subject = await subjectRepository.findById(id);
     if (!subject) return null;
 
-    const estadoNombre = await estadoService.getNombreEstado(subject.id_estado);
-    subject.estadoNombre = estadoNombre;
+    subject.estadoNombre = estadoService.getNombreEstado(subject.estado);
 
     logger.info(`Obtenida materia id: ${id}`);
     return SubjectMapper.toResponse(subject);
@@ -38,16 +35,15 @@ class SubjectService {
   async create(data) {
     const nombre = sanitizeString(data.nombre);
     if (!nombre) throw new AppError('El nombre de la materia es requerido', 400);
-
     if (!data.id_grado) throw new AppError('El curso es requerido', 400);
 
     const nombre_normalizado = sanitizeText(nombre);
 
-    const duplicado = await prisma.materia.findFirst({
+    const duplicado = await prisma.tbl_m_materia.findFirst({
       where: {
         nombre_normalizado,
-        id_estado: ESTADOS.ACTIVO,
-        id_grado: data.id_grado
+        estado: true,
+        grado_id: data.id_grado
       }
     });
     if (duplicado) {
@@ -58,7 +54,6 @@ class SubjectService {
       nombre,
       nombre_normalizado,
       descripcion: data.descripcion,
-      id_estado: data.id_estado || ESTADOS.ACTIVO,
       usuario_creacion: data.usuario_creacion,
       id_grado: data.id_grado
     });
@@ -78,11 +73,11 @@ class SubjectService {
       const nombre = sanitizeString(data.nombre);
       nombre_normalizado = sanitizeText(nombre);
 
-      const duplicado = await prisma.materia.findFirst({
+      const duplicado = await prisma.tbl_m_materia.findFirst({
         where: {
           nombre_normalizado,
-          id_estado: ESTADOS.ACTIVO,
-          id_grado: data.id_grado || existing.id_grado,
+          estado: true,
+          grado_id: data.id_grado || existing.grado_id,
           id_materia: { not: parseInt(id) }
         }
       });
@@ -95,8 +90,9 @@ class SubjectService {
       nombre: data.nombre,
       descripcion: data.descripcion,
       nombre_normalizado,
-      id_estado: data.id_estado,
-      id_grado: data.id_grado
+      estado: data.estado,
+      id_grado: data.id_grado,
+      usuario_modificacion: data.usuario_modificacion
     });
 
     logger.info(`Actualizada materia id ${id}`);
@@ -105,10 +101,10 @@ class SubjectService {
 
   async delete(id) {
     logger.info(`Eliminando materia id: ${id}`);
-    return await prisma.materia.update({
+    return await prisma.tbl_m_materia.update({
       where: { id_materia: parseInt(id) },
       data: {
-        id_estado: ESTADOS.ELIMINADO,
+        estado: false,
         fecha_modificacion: new Date()
       }
     });
