@@ -2,7 +2,7 @@ const prisma = require('../config/prisma');
 
 class RolService {
   async getNombreRol(idRol) {
-    const rol = await prisma.rol.findUnique({
+    const rol = await prisma.tbl_m_rol.findUnique({
       where: { id_rol: idRol },
       select: { nombre: true }
     });
@@ -10,13 +10,13 @@ class RolService {
   }
 
   async getRolById(idRol) {
-    return await prisma.rol.findUnique({
+    return await prisma.tbl_m_rol.findUnique({
       where: { id_rol: idRol }
     });
   }
 
   async getAllRoles() {
-    return await prisma.rol.findMany({
+    return await prisma.tbl_m_rol.findMany({
       select: { id_rol: true, nombre: true }
     });
   }

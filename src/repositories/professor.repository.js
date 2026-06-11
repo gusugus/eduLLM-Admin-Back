@@ -2,14 +2,14 @@ const prisma = require('../config/prisma');
 const ESTADOS = require('../constants/estados');
 
 class ProfessorRepository {
-  async findAll(estadosPermitidos = [ESTADOS.ACTIVO]) {
-  const where = estadosPermitidos.length > 0 ? { id_estado: { in: estadosPermitidos } } : {};
+  async findAll(soloActivos = true) {
+    const where = soloActivos ? { estado: true } : {};
 
-    return await prisma.profesor.findMany({
+    return await prisma.tbl_m_profesor.findMany({
       select: {
         id_profesor: true,
-        id_estado: true,
-        usuario: {
+        estado: true,
+        tbl_m_usuario: {
           select: {
             id_usuario: true,
             cedula: true,
@@ -19,26 +19,26 @@ class ProfessorRepository {
             apellido_paterno: true,
             apellido_materno: true,
             correo: true,
-            id_rol: true,
-            documento: {
-              where: { id_estado: ESTADOS.ACTIVO },
-              select: { id_documento: true, ruta: true, id_estado: true }
+            rol_id: true,
+            tbl_m_archivo: {
+              where: { estado: true },
+              select: { id_documento: true, ruta: true, estado: true }
             }
           }
-        },
+        }
       },
-      where 
+      where
     });
   }
 
   async findById(id) {
-    return await prisma.profesor.findUnique({
+    return await prisma.tbl_m_profesor.findUnique({
       where: { id_profesor: parseInt(id) },
       select: {
         id_profesor: true,
-        id_usuario: true,
-        id_estado: true,
-        usuario: {
+        usuario_id: true,
+        estado: true,
+        tbl_m_usuario: {
           select: {
             id_usuario: true,
             cedula: true,
@@ -48,18 +48,18 @@ class ProfessorRepository {
             apellido_paterno: true,
             apellido_materno: true,
             correo: true,
-            id_rol: true,
-            documento: {
-              where: { id_estado: ESTADOS.ACTIVO },
-              select: { id_documento: true, ruta: true, id_estado: true }
+            rol_id: true,
+            tbl_m_archivo: {
+              where: { estado: true },
+              select: { id_documento: true, ruta: true, estado: true }
             }
           }
         },
-        profesor_materia: {
+        tbl_t_profesor_materia: {
           select: {
             id_profesor_materia: true,
-            id_periodo_lectivo: true,
-            info_materia: {
+            periodo_lectivo_id: true,
+            tbl_m_materia: {
               select: {
                 id_materia: true,
                 nombre: true,
@@ -74,16 +74,16 @@ class ProfessorRepository {
   }
 
   async create(data) {
-    return await prisma.profesor.create({
+    return await prisma.tbl_m_profesor.create({
       data: {
-        id_usuario: data.id_usuario,
-        id_estado: data.id_estado || ESTADOS.ACTIVO,
+        usuario_id: data.id_usuario,
+        estado: true,
         usuario_creacion: data.usuario_creacion || null
       },
       select: {
         id_profesor: true,
-        id_usuario: true,
-        usuario: {
+        usuario_id: true,
+        tbl_m_usuario: {
           select: {
             id_usuario: true,
             primer_nombre: true,
@@ -96,17 +96,17 @@ class ProfessorRepository {
   }
 
   async update(id, data) {
-    return await prisma.profesor.update({
+    return await prisma.tbl_m_profesor.update({
       where: { id_profesor: parseInt(id) },
       data: {
-        id_estado: data.id_estado,
+        estado: data.estado,
         usuario_modificacion: data.usuario_modificacion || null,
         fecha_modificacion: new Date()
       },
       select: {
         id_profesor: true,
-        id_usuario: true,
-        usuario: {
+        usuario_id: true,
+        tbl_m_usuario: {
           select: {
             id_usuario: true,
             primer_nombre: true,
@@ -117,19 +117,17 @@ class ProfessorRepository {
       }
     });
   }
-  
 
   async delete(id, usuarioModificacion = null) {
-  return await prisma.profesor.update({
-    where: { id_profesor: parseInt(id) },
-    data: {
-      id_estado: ESTADOS.ELIMINADO,
-      fecha_modificacion: new Date(),
-      usuario_modificacion: usuarioModificacion
-    }
-  });
-}
-
+    return await prisma.tbl_m_profesor.update({
+      where: { id_profesor: parseInt(id) },
+      data: {
+        estado: false,
+        fecha_modificacion: new Date(),
+        usuario_modificacion: usuarioModificacion
+      }
+    });
+  }
 }
 
 module.exports = new ProfessorRepository();

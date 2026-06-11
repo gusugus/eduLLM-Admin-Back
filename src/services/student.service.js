@@ -11,7 +11,7 @@ const ESTADOS = require('../constants/estados');
 const ROLES = require('../constants/roles');
 
 const StudentMapper = require('../mappers/student.mapper');
-const { sanitizeName, sanitizeUsername, sanitizeEmail, sanitizeCedula, sanitizeString } = require('../utils/sanitize');
+const { sanitizeName, sanitizeUsername, sanitizeEmail, sanitizeCedula } = require('../utils/sanitize');
 
 const studentSanitizeMap = {
   primer_nombre: sanitizeName,
@@ -25,12 +25,12 @@ const studentSanitizeMap = {
 
 class StudentService {
   async findAll() {
-    const students = await studentRepository.findAll([ESTADOS.ACTIVO, ESTADOS.ELIMINADO]);
+    const students = await studentRepository.findAll(false);
 
     const enriched = await Promise.all(students.map(async (stu) => {
       const [estadoNombre, rolNombre] = await Promise.all([
-        estadoService.getNombreEstado(stu.id_estado),
-        rolService.getNombreRol(stu.usuario.id_rol)
+        Promise.resolve(estadoService.getNombreEstado(stu.estado)),
+        rolService.getNombreRol(stu.tbl_m_usuario.rol_id)
       ]);
 
       stu.estadoNombre = estadoNombre;
@@ -48,8 +48,8 @@ class StudentService {
     if (!student) return null;
 
     const [estadoNombre, rolNombre] = await Promise.all([
-      estadoService.getNombreEstado(student.id_estado),
-      rolService.getNombreRol(student.usuario.id_rol)
+      Promise.resolve(estadoService.getNombreEstado(student.estado)),
+      rolService.getNombreRol(student.tbl_m_usuario.rol_id)
     ]);
 
     student.estadoNombre = estadoNombre;
@@ -69,15 +69,14 @@ class StudentService {
 
     const {
       cedula, username, primer_nombre, segundo_nombre,
-      apellido_paterno, apellido_materno, correo, password,
-      id_estado = ESTADOS.ACTIVO
+      apellido_paterno, apellido_materno, correo, password
     } = safe;
 
     if (!username) throw new AppError('El username es requerido', 400);
     if (!primer_nombre) throw new AppError('El primer nombre es requerido', 400);
     if (!apellido_paterno) throw new AppError('El apellido paterno es requerido', 400);
 
-    const usernameExists = await prisma.usuario.findUnique({ where: { username } });
+    const usernameExists = await prisma.tbl_m_usuario.findUnique({ where: { username } });
     if (usernameExists) {
       throw new AppError(`El username '${username}' ya está en uso`, 409);
     }
@@ -85,47 +84,45 @@ class StudentService {
     const password_hash = await bcrypt.hash(password, 10);
 
     const result = await prisma.$transaction(async (tx) => {
-      const usuario = await tx.usuario.create({
+      const usuario = await tx.tbl_m_usuario.create({
         data: {
           cedula, username, primer_nombre, segundo_nombre,
           apellido_paterno, apellido_materno, correo, password_hash,
-          id_rol: ROLES.ESTUDIANTE,
-          id_estado: ESTADOS.ACTIVO,
+          rol_id: ROLES.ESTUDIANTE,
+          estado: true,
           usuario_creacion: data.usuario_creacion || null
         }
       });
 
-      const student = await tx.estudiante.create({
+      return await tx.tbl_m_estudiante.create({
         data: {
           id_usuario: usuario.id_usuario,
-          id_estado,
+          estado: true,
           usuario_creacion: data.usuario_creacion || null
         },
-        include: { usuario: true }
+        include: { tbl_m_usuario: true }
       });
-
-      return student;
     });
 
-    const nom = result.usuario;
+    const nom = result.tbl_m_usuario;
     logger.info(`Creado estudiante: ${nom.primer_nombre} ${nom.segundo_nombre || ''} ${nom.apellido_paterno}`);
 
     return {
       id: result.id_estudiante,
-      id_usuario: result.usuario.id_usuario,
+      id_usuario: result.tbl_m_usuario.id_usuario,
       nombreCompleto: `${nom.primer_nombre} ${nom.segundo_nombre || ''} ${nom.apellido_paterno}`,
-      cedula: result.usuario.cedula,
-      correo: result.usuario.correo,
-      username: result.usuario.username,
+      cedula: result.tbl_m_usuario.cedula,
+      correo: result.tbl_m_usuario.correo,
+      username: result.tbl_m_usuario.username
     };
   }
 
   async delete(id, usuarioModificacion = null) {
     logger.info(`Eliminando estudiante id: ${id} por usuario: ${usuarioModificacion || 'system'}`);
-    return await prisma.estudiante.update({
+    return await prisma.tbl_m_estudiante.update({
       where: { id_estudiante: parseInt(id) },
       data: {
-        id_estado: ESTADOS.ELIMINADO,
+        estado: false,
         fecha_modificacion: new Date(),
         usuario_modificacion: usuarioModificacion || null
       }
@@ -146,7 +143,7 @@ class StudentService {
     };
 
     const studentUpdateData = {
-      id_estado: safe.id_estado || existingStudent.id_estado,
+      estado: safe.estado !== undefined ? safe.estado : existingStudent.estado,
       usuario_modificacion: usuarioModificacion || null,
       fecha_modificacion: new Date()
     };
@@ -163,7 +160,7 @@ class StudentService {
 
     if (Object.keys(userUpdateData).length > 0) {
       updated = await prisma.$transaction(async (tx) => {
-        await tx.usuario.update({
+        await tx.tbl_m_usuario.update({
           where: { id_usuario: existingStudent.id_usuario },
           data: {
             ...userUpdateData,
@@ -172,13 +169,11 @@ class StudentService {
           }
         });
 
-        const student = await tx.estudiante.update({
+        return await tx.tbl_m_estudiante.update({
           where: { id_estudiante: parseInt(id) },
           data: studentUpdateData,
-          include: { usuario: true }
+          include: { tbl_m_usuario: true }
         });
-
-        return student;
       });
     } else {
       updated = await studentRepository.update(id, studentUpdateData);
