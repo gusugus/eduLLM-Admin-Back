@@ -1,6 +1,15 @@
 const assignmentService = require('../services/assignment.service');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
+const config = require('../config');
+
+const parsePagination = (req) => ({
+  page: Math.max(1, parseInt(req.query.page, 10) || 1),
+  limit: Math.min(
+    config.pagination.maxLimit,
+    Math.max(1, parseInt(req.query.limit, 10) || config.pagination.defaultLimit)
+  ),
+});
 
 // ─── Profesor ↔ Materia ─────────────────────────────────────
 
@@ -10,8 +19,9 @@ exports.assignProfessorToSubject = catchAsync(async (req, res) => {
 });
 
 exports.listProfessorSubjects = catchAsync(async (req, res) => {
-  const data = await assignmentService.listProfessorSubjects();
-  res.json({ success: true, data });
+  const { page, limit } = parsePagination(req);
+  const result = await assignmentService.listProfessorSubjects(page, limit);
+  res.json({ success: true, ...result });
 });
 
 exports.removeProfessorSubject = catchAsync(async (req, res) => {
@@ -27,8 +37,9 @@ exports.assignStudentsToSubject = catchAsync(async (req, res) => {
 });
 
 exports.listStudentSubjects = catchAsync(async (req, res) => {
-  const data = await assignmentService.listStudentSubjects();
-  res.json({ success: true, data });
+  const { page, limit } = parsePagination(req);
+  const result = await assignmentService.listStudentSubjects(page, limit);
+  res.json({ success: true, ...result });
 });
 
 exports.removeStudentSubject = catchAsync(async (req, res) => {

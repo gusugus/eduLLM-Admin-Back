@@ -2,6 +2,10 @@ require('dotenv').config();
 
 module.exports = {
   port: process.env.PORT || 3000,
-  jwtSecret: process.env.JWT_SECRET,
   env: process.env.NODE_ENV || 'development',
+  gatewayUrl: process.env.GATEWAY_URL || 'http://localhost:8085',
+  pagination: {
+    defaultLimit: 10,
+    maxLimit: 100,
+  },
 };

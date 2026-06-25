@@ -1,10 +1,22 @@
 const subjectService = require('../services/subject.service');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
+const config = require('../config');
 
 exports.getAllSubjects = catchAsync(async (req, res) => {
-  const data = await subjectService.findAll();
-  res.json({ success: true, data });
+  if (req.query.all === 'true') {
+    const ESTADOS = require('../constants/estados');
+    const result = await subjectService.findAll(1, null, '', [ESTADOS.ACTIVO]);
+    return res.json({ success: true, data: result.data, pagination: null });
+  }
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(
+    config.pagination.maxLimit,
+    Math.max(1, parseInt(req.query.limit, 10) || config.pagination.defaultLimit)
+  );
+  const search = req.query.search?.trim() || '';
+  const result = await subjectService.findAll(page, limit, search);
+  res.json({ success: true, ...result });
 });
 
 exports.getSubjectById = catchAsync(async (req, res) => {

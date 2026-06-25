@@ -1,7 +1,7 @@
 const professorRepository = require('../repositories/professor.repository');
+const usuarioRepository = require('../repositories/usuario.repository');
 const estadoService = require('./estado.service');
 const rolService = require('./rol.service');
-
 const prisma = require('../config/prisma');
 const bcrypt = require('bcryptjs');
 
@@ -9,6 +9,7 @@ const logger = require('../config/logger');
 const AppError = require('../utils/AppError');
 const ESTADOS = require('../constants/estados');
 const ROLES = require('../constants/roles');
+const config = require('../config');
 
 const ProfessorMapper = require('../mappers/professor.mapper');
 const { sanitizeName, sanitizeUsername, sanitizeEmail, sanitizeCedula } = require('../utils/sanitize');
@@ -24,13 +25,19 @@ const professorSanitizeMap = {
 };
 
 class ProfessorService {
-  async findAll() {
-    const professors = await professorRepository.findAll(false);
+  async findAll(page = 1, limit = config.pagination.defaultLimit, search = '', estados = [ESTADOS.ACTIVO, ESTADOS.ELIMINADO]) {
+    const skip = limit ? (page - 1) * limit : undefined;
+    const options = limit ? { skip, take: limit, search } : { search };
+
+    const [professors, total] = await Promise.all([
+      professorRepository.findAll(estados, options),
+      professorRepository.count(estados, search),
+    ]);
 
     const enriched = await Promise.all(professors.map(async (prof) => {
       const [estadoNombre, rolNombre] = await Promise.all([
-        Promise.resolve(estadoService.getNombreEstado(prof.estado)),
-        rolService.getNombreRol(prof.tbl_m_usuario.rol_id)
+        estadoService.getNombreEstado(prof.estado),
+        rolService.getNombreRol(prof.usuario.id_rol)
       ]);
 
       prof.estadoNombre = estadoNombre;
@@ -39,7 +46,15 @@ class ProfessorService {
       return prof;
     }));
 
-    return ProfessorMapper.toResponseList(enriched);
+    return {
+      data: ProfessorMapper.toResponseList(enriched),
+      pagination: limit ? {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      } : null,
+    };
   }
 
   async findById(id) {
@@ -47,8 +62,8 @@ class ProfessorService {
     if (!professor) return null;
 
     const [estadoNombre, rolNombre] = await Promise.all([
-      Promise.resolve(estadoService.getNombreEstado(professor.estado)),
-      rolService.getNombreRol(professor.tbl_m_usuario.rol_id)
+      estadoService.getNombreEstado(professor.estado),
+      rolService.getNombreRol(professor.usuario.id_rol)
     ]);
 
     professor.estadoNombre = estadoNombre;
@@ -69,13 +84,14 @@ class ProfessorService {
 
     const {
       cedula, username, primer_nombre, segundo_nombre,
-      apellido_paterno, apellido_materno, correo, password
+      apellido_paterno, apellido_materno, correo, password,
+      estado = ESTADOS.ACTIVO
     } = safe;
 
     if (!username) throw new AppError('El username es requerido', 400);
     if (!primer_nombre) throw new AppError('El primer nombre es requerido', 400);
 
-    const usernameExists = await prisma.tbl_m_usuario.findUnique({ where: { username } });
+    const usernameExists = await usuarioRepository.findByUsername(username);
     if (usernameExists) {
       throw new AppError(`El username '${username}' ya está en uso`, 409);
     }
@@ -83,29 +99,24 @@ class ProfessorService {
     const password_hash = await bcrypt.hash(password, 10);
 
     const result = await prisma.$transaction(async (tx) => {
-      const usuario = await tx.tbl_m_usuario.create({
-        data: {
-          cedula, username, primer_nombre, segundo_nombre,
-          apellido_paterno, apellido_materno, correo, password_hash,
-          rol_id: ROLES.PROFESOR,
-          estado: true,
-          usuario_creacion: data.usuario_creacion || null
-        }
-      });
+      const usuario = await usuarioRepository.create({
+        cedula, username, primer_nombre, segundo_nombre,
+        apellido_paterno, apellido_materno, correo, password_hash,
+        id_rol: ROLES.PROFESOR,
+        estado: ESTADOS.ACTIVO,
+        usuario_creacion: data.usuario_creacion || null
+      }, tx);
 
-      const profesor = await tx.tbl_m_profesor.create({
-        data: {
-          usuario_id: usuario.id_usuario,
-          estado: true,
-          usuario_creacion: data.usuario_creacion || null
-        },
-        include: { tbl_m_usuario: true }
-      });
+      const profesor = await professorRepository.create({
+        id_usuario: usuario.id_usuario,
+        estado,
+        usuario_creacion: data.usuario_creacion || null
+      }, tx);
 
-      return profesor;
+      return { ...profesor, usuario };
     });
 
-    logger.info(`Created professor: ${result.tbl_m_usuario.primer_nombre} ${result.tbl_m_usuario.segundo_nombre || ''} ${result.tbl_m_usuario.apellido_paterno}`);
+    logger.info(`Created professor with user: ${result.usuario.primer_nombre} ${result.usuario.segundo_nombre || ''} ${result.usuario.apellido_paterno}`);
 
     return {
       id: result.id_profesor,
@@ -118,14 +129,7 @@ class ProfessorService {
   }
 
   async delete(id, usuarioModificacion = null) {
-    return await prisma.tbl_m_profesor.update({
-      where: { id_profesor: parseInt(id) },
-      data: {
-        estado: false,
-        fecha_modificacion: new Date(),
-        usuario_modificacion: usuarioModificacion || null
-      }
-    });
+    return await professorRepository.delete(id, usuarioModificacion);
   }
 
   async update(id, data, usuarioModificacion = null) {
@@ -159,20 +163,13 @@ class ProfessorService {
 
     if (Object.keys(userUpdateData).length > 0) {
       updated = await prisma.$transaction(async (tx) => {
-        await tx.tbl_m_usuario.update({
-          where: { id_usuario: existingProfessor.usuario_id },
-          data: {
-            ...userUpdateData,
-            usuario_modificacion: usuarioModificacion || null,
-            fecha_modificacion: new Date()
-          }
-        });
+        await usuarioRepository.update(existingProfessor.id_usuario, {
+          ...userUpdateData,
+          usuario_modificacion: usuarioModificacion || null,
+          fecha_modificacion: new Date()
+        }, tx);
 
-        return await tx.tbl_m_profesor.update({
-          where: { id_profesor: parseInt(id) },
-          data: professorUpdateData,
-          include: { tbl_m_usuario: true }
-        });
+        return await professorRepository.update(id, professorUpdateData, tx);
       });
     } else {
       updated = await professorRepository.update(id, professorUpdateData);

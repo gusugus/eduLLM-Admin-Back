@@ -1,22 +1,19 @@
-const jwt = require('jsonwebtoken');
-const { jwtSecret } = require('../config');
 const logger = require('../config/logger');
 
 const authMiddleware = (req, res, next) => {
-  const authHeader = req.headers.authorization;
+  const idUsuario = req.headers['x-user-id'];
+  const rol = req.headers['x-user-role'];
+  const username = req.headers['x-username'];
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return next();
-  }
-
-  const token = authHeader.split(' ')[1];
-
-  try {
-    const decoded = jwt.verify(token, jwtSecret);
-    req.user = decoded;
-    logger.info(`Auth: usuario ${decoded.id_usuario || 'desconocido'} autenticado`);
-  } catch (err) {
-    logger.warn(`Auth: token inválido recibido - ${err.message}`);
+  if (idUsuario) {
+    req.user = {
+      id_usuario: parseInt(idUsuario, 10),
+      rol: rol || null,
+      username: username || null,
+    };
+    logger.info(`Auth: usuario ${idUsuario} (${username || 'desconocido'}) autenticado vía Gateway`);
+  } else {
+    logger.debug('Auth: sin headers de Gateway — request sin autenticar');
   }
 
   next();

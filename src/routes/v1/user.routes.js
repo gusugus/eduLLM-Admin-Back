@@ -1,10 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../../controllers/user.controller');
-//const authMiddleware = require('../../middlewares/auth.middleware');
 
-// Todas las rutas requieren autenticación
-//router.use(authMiddleware);
 
 // Verificar disponibilidad de username
 router.post('/check-username', userController.checkUsername);

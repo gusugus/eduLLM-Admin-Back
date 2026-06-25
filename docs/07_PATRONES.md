@@ -169,22 +169,26 @@ const password_hash = await bcrypt.hash(password, 10);
 
 ## 7.7 Auth Middleware
 
-El middleware `auth.middleware.js` es **no-bloqueante**: decodifica el JWT si existe pero nunca bloquea la request:
+El middleware `auth.middleware.js` es **no-bloqueante**: lee los headers `X-User-*` que el Gateway inyecta tras validar el JWT:
 
 ```javascript
-const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
-if (token) {
-  try {
-    req.user = jwt.verify(token, jwtSecret);
-  } catch (err) {
-    req.user = null;
-  }
+req.user = null;
+const userId = req.headers['x-user-id'];
+const userRole = req.headers['x-user-role'];
+const username = req.headers['x-username'];
+
+if (userId && userRole) {
+  req.user = {
+    id_usuario: parseInt(userId),
+    rol: userRole,
+    username: username || null,
+  };
 }
 next();
 ```
 
-- Si hay token válido → `req.user` tiene los datos decodificados
-- Si no hay token o es inválido → `req.user = null`, la request continúa
+- Si los headers existen → `req.user` poblado con los datos del Gateway
+- Si no existen → `req.user = null`, la request continúa
 
 ## 7.8 Capas y Responsabilidades
 

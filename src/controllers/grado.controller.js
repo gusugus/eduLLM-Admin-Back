@@ -1,10 +1,21 @@
 const gradoService = require('../services/grado.service');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
+const config = require('../config');
 
 exports.getAllGrados = catchAsync(async (req, res) => {
-  const data = await gradoService.findAll();
-  res.json({ success: true, data });
+  if (req.query.all === 'true') {
+    const result = await gradoService.findAll(1, null, '');
+    return res.json({ success: true, data: result.data, pagination: null });
+  }
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(
+    config.pagination.maxLimit,
+    Math.max(1, parseInt(req.query.limit, 10) || config.pagination.defaultLimit)
+  );
+  const search = req.query.search?.trim() || '';
+  const result = await gradoService.findAll(page, limit, search);
+  res.json({ success: true, ...result });
 });
 
 exports.getGradoById = catchAsync(async (req, res) => {
@@ -27,6 +38,6 @@ exports.updateGrado = catchAsync(async (req, res) => {
 
 exports.deleteGrado = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const result = await gradoService.delete(id);
+  const result = await gradoService.delete(id, req.user?.id);
   res.json({ success: true, message: result.message || 'Grado eliminado correctamente' });
 });

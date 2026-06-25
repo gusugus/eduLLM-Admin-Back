@@ -1,14 +1,30 @@
 const gradoRepository = require('../repositories/grado.repository');
 const logger = require('../config/logger');
 const AppError = require('../utils/AppError');
+const config = require('../config');
 const GradoMapper = require('../mappers/grado.mapper');
 const { sanitizeString } = require('../utils/sanitize');
 
 class GradoService {
-  async findAll() {
-    const grados = await gradoRepository.findAll();
+  async findAll(page = 1, limit = config.pagination.defaultLimit, search = '') {
+    const skip = limit ? (page - 1) * limit : undefined;
+    const options = limit ? { skip, take: limit, search } : { search };
+
+    const [grados, total] = await Promise.all([
+      gradoRepository.findAll(options),
+      gradoRepository.count(search),
+    ]);
+
     logger.info(`Listados ${grados.length} grados`);
-    return GradoMapper.toResponseList(grados);
+    return {
+      data: GradoMapper.toResponseList(grados),
+      pagination: limit ? {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      } : null,
+    };
   }
 
   async findById(id) {
@@ -47,11 +63,11 @@ class GradoService {
     return GradoMapper.toResponse(updated);
   }
 
-  async delete(id) {
+  async delete(id, usuarioModificacion = null) {
     const existing = await gradoRepository.findById(id);
     if (!existing) throw new AppError('Grado no encontrado', 404);
 
-    await gradoRepository.delete(id);
+    await gradoRepository.delete(id, usuarioModificacion);
     logger.info(`Eliminado grado id: ${id}`);
     return { message: 'Grado eliminado correctamente' };
   }

@@ -1,18 +1,18 @@
-const prisma = require('../config/prisma');
+const periodoRepository = require('../repositories/periodo.repository');
 
 class PeriodoService {
   async getActivo() {
-    return await prisma.tbl_m_periodo_lectivo.findFirst({
-      where: { es_activo: true, estado: true },
-      select: { id_periodo_lectivo: true, nombre: true }
-    });
+    return await periodoRepository.findFirst(
+      { es_activo: true, estado: true },
+      { id_periodo_lectivo: true, nombre: true }
+    );
   }
 
   async getAll() {
-    return await prisma.tbl_m_periodo_lectivo.findMany({
-      where: { estado: true },
-      select: { id_periodo_lectivo: true, nombre: true, es_activo: true }
-    });
+    return await periodoRepository.findMany(
+      { estado: true },
+      { id_periodo_lectivo: true, nombre: true, es_activo: true }
+    );
   }
 }
 

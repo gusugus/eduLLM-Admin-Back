@@ -1,15 +1,37 @@
 const prisma = require('../config/prisma');
 const ESTADOS = require('../constants/estados');
+const ROLES = require('../constants/roles');
+
+const buildWhere = (estadosPermitidos, search) => {
+  const where = {
+    usuario: { id_rol: ROLES.ESTUDIANTE }
+  };
+  if (estadosPermitidos.length === 1) {
+    where.estado = estadosPermitidos[0];
+  }
+  if (search) {
+    where.OR = [
+      { usuario: { primer_nombre: { contains: search, mode: 'insensitive' } } },
+      { usuario: { segundo_nombre: { contains: search, mode: 'insensitive' } } },
+      { usuario: { apellido_paterno: { contains: search, mode: 'insensitive' } } },
+      { usuario: { apellido_materno: { contains: search, mode: 'insensitive' } } },
+      { usuario: { username: { contains: search, mode: 'insensitive' } } },
+    ];
+  }
+  return where;
+};
 
 class StudentRepository {
-  async findAll(soloActivos = true) {
-    const where = soloActivos ? { estado: true } : {};
+  async findAll(estadosPermitidos = [ESTADOS.ACTIVO], options = {}, tx = null) {
+    const { skip = 0, take = 50, search = '' } = options;
+    const client = tx || prisma;
+    const where = buildWhere(estadosPermitidos, search);
 
-    return await prisma.tbl_m_estudiante.findMany({
+    return await client.estudiante.findMany({
       select: {
         id_estudiante: true,
         estado: true,
-        tbl_m_usuario: {
+        usuario: {
           select: {
             id_usuario: true,
             cedula: true,
@@ -19,26 +41,37 @@ class StudentRepository {
             apellido_paterno: true,
             apellido_materno: true,
             correo: true,
-            rol_id: true,
-            tbl_m_archivo: {
+            id_rol: true,
+            archivo: {
               where: { estado: true },
               select: { id_documento: true, ruta: true, estado: true }
             }
           }
         }
       },
-      where
+      where,
+      skip,
+      take,
+      orderBy: { id_estudiante: 'asc' },
     });
   }
 
-  async findById(id) {
-    return await prisma.tbl_m_estudiante.findUnique({
+  async count(estadosPermitidos = [ESTADOS.ACTIVO], search = '', tx = null) {
+    const client = tx || prisma;
+    return await client.estudiante.count({
+      where: buildWhere(estadosPermitidos, search),
+    });
+  }
+
+  async findById(id, tx = null) {
+    const client = tx || prisma;
+    return await client.estudiante.findUnique({
       where: { id_estudiante: parseInt(id) },
       select: {
         id_estudiante: true,
         id_usuario: true,
         estado: true,
-        tbl_m_usuario: {
+        usuario: {
           select: {
             id_usuario: true,
             cedula: true,
@@ -48,8 +81,8 @@ class StudentRepository {
             apellido_paterno: true,
             apellido_materno: true,
             correo: true,
-            rol_id: true,
-            tbl_m_archivo: {
+            id_rol: true,
+            archivo: {
               where: { estado: true },
               select: { id_documento: true, ruta: true, estado: true }
             }
@@ -59,7 +92,7 @@ class StudentRepository {
           select: {
             id_estudiante_materia: true,
             id_periodo_lectivo: true,
-            tbl_m_materia: {
+            materia: {
               select: {
                 id_materia: true,
                 nombre: true,
@@ -72,11 +105,12 @@ class StudentRepository {
     });
   }
 
-  async create(data) {
-    return await prisma.tbl_m_estudiante.create({
+  async create(data, tx = null) {
+    const client = tx || prisma;
+    return await client.estudiante.create({
       data: {
         id_usuario: data.id_usuario,
-        estado: true,
+        estado: data.estado !== undefined ? data.estado : ESTADOS.ACTIVO,
         usuario_creacion: data.usuario_creacion || null
       },
       select: {
@@ -94,8 +128,9 @@ class StudentRepository {
     });
   }
 
-  async update(id, data) {
-    return await prisma.tbl_m_estudiante.update({
+  async update(id, data, tx = null) {
+    const client = tx || prisma;
+    return await client.estudiante.update({
       where: { id_estudiante: parseInt(id) },
       data: {
         estado: data.estado,
@@ -117,11 +152,12 @@ class StudentRepository {
     });
   }
 
-  async delete(id, usuarioModificacion = null) {
-    return await prisma.tbl_m_estudiante.update({
+  async delete(id, usuarioModificacion = null, tx = null) {
+    const client = tx || prisma;
+    return await client.estudiante.update({
       where: { id_estudiante: parseInt(id) },
       data: {
-        estado: false,
+        estado: ESTADOS.ELIMINADO,
         fecha_modificacion: new Date(),
         usuario_modificacion: usuarioModificacion
       }

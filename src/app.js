@@ -6,6 +6,7 @@ const logger = require('./config/logger');
 const { errorHandler } = require('./middlewares/errorHandler');
 const { logRequest } = require('./middlewares/logger.middleware');
 const authMiddleware = require('./middlewares/auth.middleware');
+const { requireRole } = require('./middlewares/role.middleware');
 const { globalSanitizer } = require('./middlewares/sanitize.middleware');
 const routes = require('./routes');
 
@@ -32,6 +33,9 @@ app.use(require('cookie-parser')());
 
 // Auth middleware (débil: no bloquea, solo decodifica si hay token válido)
 app.use(authMiddleware);
+
+// Bloqueo por rol — solo administradores
+app.use('/api/admin', requireRole('ROLE_ADMINISTRADOR'));
 
 // Sanitización global automática
 app.use(globalSanitizer);

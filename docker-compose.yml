@@ -1,20 +1,42 @@
-# docker-compose.yml
-version: '3.8'
-
 services:
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: rol-admin-ms
+    image: edullm-admin-back:1.0
+    container_name: admin-back-ms
+    restart: unless-stopped
+
+    user: "1001:1001"
+    #Cambio para prod
+    read_only: false
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /app/tmp:rw,noexec,nosuid,size=32m    
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 512M
+        reservations:
+          cpus: '1'
+          memory: 256M
+
     networks:
       - default          # para comunicarse con qdrant
       - observability-net # para enviar trazas a Alloy
-    restart: unless-stopped
+    
     #ports:
     #  - "8002:8002"  # mapea puerto host:contenedor
+    
     volumes:
-      # Bind mount: monta TODO tu código local dentro del contenedor
       - .:/app
       # Anonymous volume: evita que node_modules local sobrescriba el del contenedor
       - /app/node_modules
