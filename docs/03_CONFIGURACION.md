@@ -5,7 +5,6 @@
 ```env
 PORT=8002
 DATABASE_URL="postgresql://admin:admin@localhost:5432/edu_llm?schema=comun"
-JWT_SECRET="404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"
 NODE_ENV=development
 ```
 

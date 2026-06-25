@@ -1,0 +1,55 @@
+# ============================================
+# ETAPA 1: Builder - Solo para compilar
+# ============================================
+FROM node:18-alpine AS builder
+
+WORKDIR /build
+
+# Copiar archivos de dependencias
+COPY package*.json ./
+COPY package-lock.json* ./
+
+# Instalar solo dependencias de producción
+RUN npm ci --only=production --no-audit --no-fund
+
+# ============================================
+# ETAPA 2: Runtime - Imagen final
+# ============================================
+FROM node:18-alpine
+
+# Instalar herramientas útiles (opcional, remover en producción)
+RUN apk add --no-cache dumb-init tini
+
+# Crear usuario no-root con UID fijo (1001)
+RUN addgroup -g 1001 -S nodegroup && \
+    adduser -S nodeuser -G nodegroup -u 1001 -h /app -s /sbin/nologin
+
+# Crear directorio de trabajo y asignar permisos
+WORKDIR /app
+RUN chown nodeuser:nodegroup /app
+
+# Copiar dependencias desde builder
+COPY --from=builder --chown=nodeuser:nodegroup /build/node_modules ./node_modules
+
+# Copiar código fuente
+COPY --chown=nodeuser:nodegroup . .
+
+# Eliminar archivos innecesarios
+RUN rm -rf .git .env.example README.md .gitignore && \
+    find . -name "*.md" -type f -delete
+
+# Cambiar al usuario no-root
+USER nodeuser
+
+# Exponer puerto (ajusta según tu app)
+EXPOSE 3000
+
+# Healthcheck para monitoreo
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Usar tini para manejar señales correctamente
+ENTRYPOINT ["/sbin/tini", "--"]
+
+# Comando para producción
+CMD ["node", "server.js"]

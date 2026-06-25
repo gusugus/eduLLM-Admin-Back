@@ -1,33 +1,38 @@
 const subjectRepository = require('../repositories/subject.repository');
-const estadoService = require('./estado.service');
-
-const prisma = require('../config/prisma');
 
 const logger = require('../config/logger');
 const AppError = require('../utils/AppError');
+const ESTADOS = require('../constants/estados');
+const config = require('../config');
 
 const SubjectMapper = require('../mappers/subject.mapper');
 const { sanitizeText, sanitizeString } = require('../utils/sanitize');
 
 class SubjectService {
-  async findAll() {
-    const subjects = await subjectRepository.findAll(false);
+  async findAll(page = 1, limit = config.pagination.defaultLimit, search = '', estados = [ESTADOS.ACTIVO, ESTADOS.ELIMINADO]) {
+    const skip = limit ? (page - 1) * limit : undefined;
+    const options = limit ? { skip, take: limit, search } : { search };
 
-    const enriched = subjects.map((sub) => {
-      sub.estadoNombre = estadoService.getNombreEstado(sub.estado);
-      return sub;
-    });
+    const [subjects, total] = await Promise.all([
+      subjectRepository.findAll(estados, options),
+      subjectRepository.count(estados, search),
+    ]);
 
-    logger.info(`Listadas ${enriched.length} materias`);
-    return SubjectMapper.toResponseList(enriched);
+    logger.info(`Listadas ${subjects.length} materias`);
+    return {
+      data: SubjectMapper.toResponseList(subjects),
+      pagination: limit ? {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      } : null,
+    };
   }
 
   async findById(id) {
     const subject = await subjectRepository.findById(id);
     if (!subject) return null;
-
-    subject.estadoNombre = estadoService.getNombreEstado(subject.estado);
-
     logger.info(`Obtenida materia id: ${id}`);
     return SubjectMapper.toResponse(subject);
   }
@@ -39,12 +44,10 @@ class SubjectService {
 
     const nombre_normalizado = sanitizeText(nombre);
 
-    const duplicado = await prisma.tbl_m_materia.findFirst({
-      where: {
-        nombre_normalizado,
-        estado: true,
-        grado_id: data.id_grado
-      }
+    const duplicado = await subjectRepository.findFirst({
+      nombre_normalizado,
+      estado: ESTADOS.ACTIVO,
+      id_grado: data.id_grado
     });
     if (duplicado) {
       throw new AppError(`La materia "${duplicado.nombre}" ya existe para este curso`, 409);
@@ -54,6 +57,7 @@ class SubjectService {
       nombre,
       nombre_normalizado,
       descripcion: data.descripcion,
+      estado: data.estado !== undefined ? data.estado : ESTADOS.ACTIVO,
       usuario_creacion: data.usuario_creacion,
       id_grado: data.id_grado
     });
@@ -73,13 +77,11 @@ class SubjectService {
       const nombre = sanitizeString(data.nombre);
       nombre_normalizado = sanitizeText(nombre);
 
-      const duplicado = await prisma.tbl_m_materia.findFirst({
-        where: {
-          nombre_normalizado,
-          estado: true,
-          grado_id: data.id_grado || existing.grado_id,
-          id_materia: { not: parseInt(id) }
-        }
+      const duplicado = await subjectRepository.findFirst({
+        nombre_normalizado,
+        estado: ESTADOS.ACTIVO,
+        id_grado: data.id_grado || existing.id_grado,
+        id_materia: { not: parseInt(id) }
       });
       if (duplicado) {
         throw new AppError(`La materia "${duplicado.nombre}" ya existe para este curso`, 409);
@@ -91,8 +93,7 @@ class SubjectService {
       descripcion: data.descripcion,
       nombre_normalizado,
       estado: data.estado,
-      id_grado: data.id_grado,
-      usuario_modificacion: data.usuario_modificacion
+      id_grado: data.id_grado
     });
 
     logger.info(`Actualizada materia id ${id}`);
@@ -101,13 +102,7 @@ class SubjectService {
 
   async delete(id) {
     logger.info(`Eliminando materia id: ${id}`);
-    return await prisma.tbl_m_materia.update({
-      where: { id_materia: parseInt(id) },
-      data: {
-        estado: false,
-        fecha_modificacion: new Date()
-      }
-    });
+    return await subjectRepository.softDelete(id);
   }
 }
 

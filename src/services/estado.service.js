@@ -1,6 +1,10 @@
 class EstadoService {
   getNombreEstado(estado) {
-    return estado ? 'Activo' : 'Inactivo';
+    return estado === true ? 'Activo' : estado === false ? 'Inactivo' : 'Desconocido';
+  }
+
+  getCodigoEstado(estado) {
+    return estado === true ? 'ACT' : estado === false ? 'INA' : 'UNK';
   }
 }
 

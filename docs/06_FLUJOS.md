@@ -3,7 +3,7 @@
 ## 6.1 Autenticación — Login
 
 ```
-Cliente                  Gateway                    Backend
+Cliente                  Gateway                    auth-ms
   │                        │                          │
   │  POST /api/auth/login  │                          │
   │  {username, password}  │                          │
@@ -19,24 +19,84 @@ Cliente                  Gateway                    Backend
   │<───────────────────────│                          │
 ```
 
-## 6.2 Autenticación — Verify
+## 6.2 Autenticación — Verify y Role Check
 
 ```
-Cliente                    Gateway                    Backend
-  │                          │                          │
-  │  GET /api/auth/verify    │                          │
-  │  (cookie automática)     │                          │
-  │─────────────────────────>│                          │
-  │                          │  GET /auth/verify        │
-  │                          │  (con cookie)            │
-  │                          │─────────────────────────>│
-  │                          │                          │
-  │                          │  Decodificar token       │
-  │                          │  Retornar usuario + rol  │
-  │                          │<─────────────────────────│
-  │  200 {authenticated,     │                          │
-  │  username, rol, ...}     │                          │
-  │<─────────────────────────│                          │
+Cliente                Gateway (8085)               Backend Admin (8002)
+  │                      │                              │
+  │  GET /auth/verify    │                              │
+  │  (cookie automática) │                              │
+  │─────────────────────>│                              │
+  │                      │  Valida JWT (cookie/Bearer)  │
+  │                      │  Extrae idUsuario, rol       │
+  │                      │                              │
+  │  200 {authenticated, │                              │
+  │  username, rol}      │                              │
+  │<─────────────────────│                              │
+  │                      │                              │
+  │  GET /api/admin/**   │                              │
+  │  (cookie automática) │                              │
+  │─────────────────────>│                              │
+  │                      │  Valida JWT + RBAC           │
+  │                      │  RoleRulesProperties.java    │
+  │                      │  (solo ADMIN puede /api/admin)│
+  │                      │                              │
+  │                      │  Inyecta X-User-Id           │
+  │                      │  Inyecta X-User-Role         │
+  │                      │  Inyecta X-Username          │
+  │                      │  Descarta JWT original       │
+  │                      │                              │
+  │                      │  GET /api/admin/**           │
+  │                      │  (con X-User-* headers)      │
+  │                      │─────────────────────────────>│
+  │                      │                              │
+  │                      │  1. auth.middleware.js       │
+  │                      │     → Lee X-User-* headers   │
+  │                      │     → Crea req.user          │
+  │                      │                              │
+  │                      │  2. role.middleware.js       │
+  │                      │     → requireRole(ADMIN)     │
+  │                      │     → 403 si no coincide     │
+  │                      │                              │
+  │                      │  3. Controller → Service    │
+  │                      │     → usa req.user.id_usuario│
+  │                      │                              │
+  │                      │<─────────────────────────────│
+  │  Response            │                              │
+  │<─────────────────────│                              │
+```
+
+> El Gateway es el único que valida JWT. El backend confía en los `X-User-*` headers porque solo el Gateway puede inyectarlos (red interna).
+
+## 6.3 Flujo — Role incorrecto (403)
+
+```
+Cliente              Gateway                   Backend Admin
+  │                    │                           │
+  │  GET /api/admin/** │                           │
+  │───────────────────>│                           │
+  │                    │  Valida JWT + RBAC        │
+  │                    │  Rol no autorizado        │
+  │                    │                           │
+  │  403 Forbidden     │                           │
+  │<───────────────────│                           │
+```
+
+Si el request pasa el Gateway (por. ej. un rol con acceso parcial), el backend también verifica:
+
+```
+Cliente              Gateway                   Backend Admin
+  │                    │                           │
+  │  GET /api/admin/** │                           │
+  │───────────────────>│                           │
+  │                    │  Inyecta X-User-* headers │
+  │                    │──────────────────────────>│
+  │                    │                           │
+  │                    │  role.middleware.js       │
+  │                    │  → 403 si rol ≠ ADMIN    │
+  │                    │<──────────────────────────│
+  │  403 Forbidden     │                           │
+  │<───────────────────│                           │
 ```
 
 ## 6.3 Profesor — Crear (POST /api/admin/professors)

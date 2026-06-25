@@ -1,7 +1,12 @@
+const profesorMateriaRepository = require('../repositories/profesor_materia.repository');
+const estudianteMateriaRepository = require('../repositories/estudiante_materia.repository');
+const estudianteRepository = require('../repositories/student.repository');
+const periodoService = require('./periodo.service');
 const prisma = require('../config/prisma');
+
 const logger = require('../config/logger');
 const AppError = require('../utils/AppError');
-const periodoService = require('./periodo.service');
+const ESTADOS = require('../constants/estados');
 
 class AssignmentService {
 
@@ -13,97 +18,83 @@ class AssignmentService {
     const periodo = await periodoService.getActivo();
     if (!periodo) throw new AppError('No hay un periodo lectivo activo', 400);
 
-    const existing = await prisma.tbl_t_profesor_materia.findFirst({
-      where: {
-        profesor_id: parseInt(id_profesor),
-        materia_id: parseInt(id_materia),
-        estado: true
-      }
+    const existing = await profesorMateriaRepository.findFirst({
+      id_profesor: parseInt(id_profesor),
+      id_materia: parseInt(id_materia),
+      estado: { not: false }
     });
     if (existing) throw new AppError('El profesor ya tiene esta materia asignada', 409);
 
-    const assignment = await prisma.tbl_t_profesor_materia.create({
-      data: {
-        profesor_id: parseInt(id_profesor),
-        materia_id: parseInt(id_materia),
-        periodo_lectivo_id: periodo.id_periodo_lectivo,
-        estado: true,
-        usuario_creacion: data.usuario_creacion || null
-      },
-      include: {
-        tbl_m_profesor: {
-          select: {
-            id_profesor: true,
-            tbl_m_usuario: { select: { primer_nombre: true, segundo_nombre: true, apellido_paterno: true } }
-          }
-        },
-        tbl_m_materia: {
-          select: {
-            id_materia: true,
-            nombre: true,
-            tbl_m_grado: { select: { grado: true, paralelo: true } }
-          }
-        }
-      }
+    const assignment = await profesorMateriaRepository.create({
+      id_profesor: parseInt(id_profesor),
+      id_materia: parseInt(id_materia),
+      id_periodo_lectivo: periodo.id_periodo_lectivo,
+      estado: ESTADOS.ACTIVO,
+      usuario_creacion: data.usuario_creacion || null
+    }, {
+      profesor: { select: { id_profesor: true, usuario: { select: { primer_nombre: true, segundo_nombre: true, apellido_paterno: true } } } },
+      materia: { select: { id_materia: true, nombre: true, grado: { select: { grado: true, paralelo: true } } } }
     });
 
-    const g = assignment.tbl_m_materia.tbl_m_grado;
+    const g = assignment.materia.grado;
     const gradoStr = g ? `${g.grado} ${g.paralelo || ''}`.trim() : '';
 
     logger.info(`Asignado profesor ${id_profesor} a materia ${id_materia}`);
     return {
       id: assignment.id_profesor_materia,
-      id_profesor: assignment.profesor_id,
-      profesor: `${assignment.tbl_m_profesor.tbl_m_usuario.primer_nombre} ${assignment.tbl_m_profesor.tbl_m_usuario.segundo_nombre || ''} ${assignment.tbl_m_profesor.tbl_m_usuario.apellido_paterno}`.trim(),
-      id_materia: assignment.materia_id,
-      materia: assignment.tbl_m_materia.nombre + (gradoStr ? ` (${gradoStr})` : ''),
-      id_periodo_lectivo: assignment.periodo_lectivo_id
+      id_profesor: assignment.id_profesor,
+      profesor: `${assignment.profesor.usuario.primer_nombre} ${assignment.profesor.usuario.segundo_nombre || ''} ${assignment.profesor.usuario.apellido_paterno}`.trim(),
+      id_materia: assignment.id_materia,
+      materia: assignment.materia.nombre + (gradoStr ? ` (${gradoStr})` : ''),
+      id_periodo_lectivo: assignment.id_periodo_lectivo
     };
   }
 
-  async listProfessorSubjects() {
-    const items = await prisma.tbl_t_profesor_materia.findMany({
-      select: {
-        id_profesor_materia: true,
-        estado: true,
-        tbl_m_profesor: {
-          select: {
-            id_profesor: true,
-            tbl_m_usuario: { select: { primer_nombre: true, segundo_nombre: true, apellido_paterno: true } }
-          }
+  async listProfessorSubjects(page = 1, limit = 10) {
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      profesorMateriaRepository.findMany(
+        {},
+        {
+          id_profesor_materia: true,
+          estado: true,
+          profesor: {
+            select: { id_profesor: true, usuario: { select: { primer_nombre: true, segundo_nombre: true, apellido_paterno: true } } }
+          },
+          materia: { select: { id_materia: true, nombre: true, grado: { select: { grado: true, paralelo: true } } } },
+          periodo_lectivo: { select: { id_periodo_lectivo: true, nombre: true } }
         },
-        tbl_m_materia: {
-          select: {
-            id_materia: true,
-            nombre: true,
-            tbl_m_grado: { select: { grado: true, paralelo: true } }
-          }
-        },
-        tbl_m_periodo_lectivo: { select: { id_periodo_lectivo: true, nombre: true } }
-      },
-      orderBy: { id_profesor_materia: 'desc' }
-    });
+        { id_profesor_materia: 'desc' },
+        { skip, take: limit }
+      ),
+      prisma.profesor_materia.count({ where: {} }),
+    ]);
 
-    return items.map(i => {
-      const g = i.tbl_m_materia.tbl_m_grado;
+    const data = items.map(i => {
+      const g = i.materia.grado;
       const gradoStr = g ? `${g.grado} ${g.paralelo || ''}`.trim() : '';
       return {
         id: i.id_profesor_materia,
-        id_profesor: i.tbl_m_profesor.id_profesor,
-        profesor: `${i.tbl_m_profesor.tbl_m_usuario.primer_nombre} ${i.tbl_m_profesor.tbl_m_usuario.segundo_nombre || ''} ${i.tbl_m_profesor.tbl_m_usuario.apellido_paterno}`.trim(),
-        id_materia: i.tbl_m_materia.id_materia,
-        materia: i.tbl_m_materia.nombre + (gradoStr ? ` (${gradoStr})` : ''),
-        periodo: i.tbl_m_periodo_lectivo.nombre,
-        estado: i.estado ? 'Activo' : 'Inactivo'
+        id_profesor: i.profesor.id_profesor,
+        profesor: `${i.profesor.usuario.primer_nombre} ${i.profesor.usuario.segundo_nombre || ''} ${i.profesor.usuario.apellido_paterno}`.trim(),
+        id_materia: i.materia.id_materia,
+        materia: i.materia.nombre + (gradoStr ? ` (${gradoStr})` : ''),
+        periodo: i.periodo_lectivo.nombre,
+        estado: i.estado === true ? 'Activo' : 'Eliminado'
       };
     });
+
+    return {
+      data,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async removeProfessorSubject(id) {
     logger.info(`Eliminando asignación profesor-materia id: ${id}`);
-    return await prisma.tbl_t_profesor_materia.update({
-      where: { id_profesor_materia: parseInt(id) },
-      data: { estado: false, fecha_modificacion: new Date() }
+    return await profesorMateriaRepository.update(id, {
+      estado: ESTADOS.ELIMINADO,
+      fecha_modificacion: new Date()
     });
   }
 
@@ -125,20 +116,15 @@ class AssignmentService {
     for (const idEst of id_estudiantes) {
       const idEstudiante = parseInt(idEst);
 
-      const existing = await prisma.tbl_m_estudiante_materia.findFirst({
-        where: {
-          id_estudiante: idEstudiante,
-          id_materia: materiaId,
-          id_periodo_lectivo: periodo.id_periodo_lectivo,
-          estado: true
-        }
+      const existing = await estudianteMateriaRepository.findFirst({
+        id_estudiante: idEstudiante,
+        id_materia: materiaId,
+        id_periodo_lectivo: periodo.id_periodo_lectivo,
+        estado: { not: false }
       });
 
       if (existing) {
-        const estudiante = await prisma.tbl_m_estudiante.findUnique({
-          where: { id_estudiante: idEstudiante },
-          select: { tbl_m_usuario: { select: { primer_nombre: true, segundo_nombre: true, apellido_paterno: true } } }
-        });
+        const estudiante = await estudianteRepository.findById(idEstudiante);
         results.push({
           id_estudiante: idEstudiante,
           nombre: `${estudiante?.tbl_m_usuario?.primer_nombre || ''} ${estudiante?.tbl_m_usuario?.segundo_nombre || ''} ${estudiante?.tbl_m_usuario?.apellido_paterno || ''}`.trim(),
@@ -147,28 +133,22 @@ class AssignmentService {
         continue;
       }
 
-      const assignment = await prisma.tbl_m_estudiante_materia.create({
-        data: {
-          id_estudiante: idEstudiante,
-          id_materia: materiaId,
-          id_periodo_lectivo: periodo.id_periodo_lectivo,
-          estado: true,
-          usuario_creacion: data.usuario_creacion || null
-        },
-        include: {
-          tbl_m_estudiante: {
-            select: {
-              id_estudiante: true,
-              tbl_m_usuario: { select: { primer_nombre: true, segundo_nombre: true, apellido_paterno: true } }
-            }
-          }
+      const assignment = await estudianteMateriaRepository.create({
+        id_estudiante: idEstudiante,
+        id_materia: materiaId,
+        id_periodo_lectivo: periodo.id_periodo_lectivo,
+        estado: ESTADOS.ACTIVO,
+        usuario_creacion: data.usuario_creacion || null
+      }, {
+        estudiante: {
+          select: { id_estudiante: true, usuario: { select: { primer_nombre: true, segundo_nombre: true, apellido_paterno: true } } }
         }
       });
 
       results.push({
         id: assignment.id_estudiante_materia,
         id_estudiante: idEstudiante,
-        nombre: `${assignment.tbl_m_estudiante.tbl_m_usuario.primer_nombre} ${assignment.tbl_m_estudiante.tbl_m_usuario.segundo_nombre || ''} ${assignment.tbl_m_estudiante.tbl_m_usuario.apellido_paterno}`.trim(),
+        nombre: `${assignment.estudiante.usuario.primer_nombre} ${assignment.estudiante.usuario.segundo_nombre || ''} ${assignment.estudiante.usuario.apellido_paterno}`.trim(),
         id_materia: materiaId,
         error: null
       });
@@ -179,49 +159,51 @@ class AssignmentService {
     return results;
   }
 
-  async listStudentSubjects() {
-    const items = await prisma.tbl_m_estudiante_materia.findMany({
-      select: {
-        id_estudiante_materia: true,
-        estado: true,
-        tbl_m_estudiante: {
-          select: {
-            id_estudiante: true,
-            tbl_m_usuario: { select: { primer_nombre: true, segundo_nombre: true, apellido_paterno: true } }
-          }
+  async listStudentSubjects(page = 1, limit = 10) {
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      estudianteMateriaRepository.findMany(
+        {},
+        {
+          id_estudiante_materia: true,
+          estado: true,
+          estudiante: {
+            select: { id_estudiante: true, usuario: { select: { primer_nombre: true, segundo_nombre: true, apellido_paterno: true } } }
+          },
+          materia: { select: { id_materia: true, nombre: true, grado: { select: { grado: true, paralelo: true } } } },
+          periodo_lectivo: { select: { id_periodo_lectivo: true, nombre: true } }
         },
-        tbl_m_materia: {
-          select: {
-            id_materia: true,
-            nombre: true,
-            tbl_m_grado: { select: { grado: true, paralelo: true } }
-          }
-        },
-        tbl_m_periodo_lectivo: { select: { id_periodo_lectivo: true, nombre: true } }
-      },
-      orderBy: { id_estudiante_materia: 'desc' }
-    });
+        { id_estudiante_materia: 'desc' },
+        { skip, take: limit }
+      ),
+      prisma.estudiante_materia.count({ where: {} }),
+    ]);
 
-    return items.map(i => {
-      const g = i.tbl_m_materia.tbl_m_grado;
+    const data = items.map(i => {
+      const g = i.materia.grado;
       const gradoStr = g ? `${g.grado} ${g.paralelo || ''}`.trim() : '';
       return {
         id: i.id_estudiante_materia,
-        id_estudiante: i.tbl_m_estudiante.id_estudiante,
-        estudiante: `${i.tbl_m_estudiante.tbl_m_usuario.primer_nombre} ${i.tbl_m_estudiante.tbl_m_usuario.segundo_nombre || ''} ${i.tbl_m_estudiante.tbl_m_usuario.apellido_paterno}`.trim(),
-        id_materia: i.tbl_m_materia.id_materia,
-        materia: i.tbl_m_materia.nombre + (gradoStr ? ` (${gradoStr})` : ''),
-        periodo: i.tbl_m_periodo_lectivo.nombre,
-        estado: i.estado ? 'Activo' : 'Inactivo'
+        id_estudiante: i.estudiante.id_estudiante,
+        estudiante: `${i.estudiante.usuario.primer_nombre} ${i.estudiante.usuario.segundo_nombre || ''} ${i.estudiante.usuario.apellido_paterno}`.trim(),
+        id_materia: i.materia.id_materia,
+        materia: i.materia.nombre + (gradoStr ? ` (${gradoStr})` : ''),
+        periodo: i.periodo_lectivo.nombre,
+        estado: i.estado === true ? 'Activo' : 'Eliminado'
       };
     });
+
+    return {
+      data,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async removeStudentSubject(id) {
     logger.info(`Eliminando asignación estudiante-materia id: ${id}`);
-    return await prisma.tbl_m_estudiante_materia.update({
-      where: { id_estudiante_materia: parseInt(id) },
-      data: { estado: false, fecha_modificacion: new Date() }
+    return await estudianteMateriaRepository.update(id, {
+      estado: ESTADOS.ELIMINADO,
+      fecha_modificacion: new Date()
     });
   }
 }

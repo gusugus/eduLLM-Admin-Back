@@ -1,24 +1,17 @@
-const prisma = require('../config/prisma');
+const rolRepository = require('../repositories/rol.repository');
 
 class RolService {
   async getNombreRol(idRol) {
-    const rol = await prisma.tbl_m_rol.findUnique({
-      where: { id_rol: idRol },
-      select: { nombre: true }
-    });
+    const rol = await rolRepository.findById(idRol, { nombre: true });
     return rol?.nombre || 'Desconocido';
   }
 
   async getRolById(idRol) {
-    return await prisma.tbl_m_rol.findUnique({
-      where: { id_rol: idRol }
-    });
+    return await rolRepository.findById(idRol);
   }
 
   async getAllRoles() {
-    return await prisma.tbl_m_rol.findMany({
-      select: { id_rol: true, nombre: true }
-    });
+    return await rolRepository.findAll({ id_rol: true, nombre: true });
   }
 }
 

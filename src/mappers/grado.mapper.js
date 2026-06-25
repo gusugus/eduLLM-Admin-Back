@@ -6,7 +6,8 @@ class GradoMapper {
       id: grado.id_grado,
       grado: grado.grado,
       paralelo: grado.paralelo || null,
-      nombre_completo: this.getNombreCompleto(grado)
+      nombre_completo: this.getNombreCompleto(grado),
+      estado: grado.estado === true ? 'Activo' : grado.estado === false ? 'Inactivo' : null,
     };
   }
 

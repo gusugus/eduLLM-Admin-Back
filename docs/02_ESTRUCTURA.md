@@ -17,7 +17,7 @@ BACK/
 └── src/
     ├── app.js                         # Configuración Express (middleware, rutas montadas en /api/admin)
     ├── config/
-    │   ├── index.js                   # Exporta variables de entorno (port, jwtSecret, env)
+    │   ├── index.js                   # Exporta variables de entorno (port, env, pagination)
     │   ├── logger.js                  # Winston logger (console + archivos)
     │   └── prisma.js                  # Singleton PrismaClient
     ├── controllers/

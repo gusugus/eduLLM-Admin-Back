@@ -1,24 +1,54 @@
 const prisma = require('../config/prisma');
 const ESTADOS = require('../constants/estados');
 
-class SubjectRepository {
-  async findAll(soloActivos = true) {
-    const where = soloActivos ? { estado: true } : {};
+const buildWhere = (estadosPermitidos, search) => {
+  const where = {};
+  if (estadosPermitidos.length === 1) {
+    where.estado = estadosPermitidos[0];
+  }
+  if (search) {
+    where.OR = [
+      { nombre: { contains: search, mode: 'insensitive' } },
+      { grado: { grado: parseInt(search) || 0 } },
+    ];
+  }
+  return where;
+};
 
-    return await prisma.tbl_m_materia.findMany({
+class SubjectRepository {
+  async findAll(estadosPermitidos = [ESTADOS.ACTIVO], options = {}, tx = null) {
+    const { skip = 0, take = 50, search = '' } = options;
+    const client = tx || prisma;
+    const where = buildWhere(estadosPermitidos, search);
+
+    return await client.materia.findMany({
       select: {
         id_materia: true,
         nombre: true,
         descripcion: true,
         nombre_normalizado: true,
         estado: true,
-        grado_id: true,
-        tbl_m_grado: {
+        id_grado: true,
+        grado: {
           select: { id_grado: true, grado: true, paralelo: true }
         }
       },
-      where
+      where,
+      skip,
+      take,
+      orderBy: { id_materia: 'asc' },
     });
+  }
+
+  async count(estadosPermitidos = [ESTADOS.ACTIVO], search = '', tx = null) {
+    const client = tx || prisma;
+    return await client.materia.count({
+      where: buildWhere(estadosPermitidos, search),
+    });
+  }
+
+  async findFirst(where) {
+    return await prisma.materia.findFirst({ where });
   }
 
   async findById(id) {
@@ -30,8 +60,8 @@ class SubjectRepository {
         descripcion: true,
         nombre_normalizado: true,
         estado: true,
-        grado_id: true,
-        tbl_m_grado: {
+        id_grado: true,
+        grado: {
           select: { id_grado: true, grado: true, paralelo: true }
         }
       }
@@ -44,7 +74,7 @@ class SubjectRepository {
         nombre: data.nombre,
         descripcion: data.descripcion || null,
         nombre_normalizado: data.nombre_normalizado || null,
-        estado: true,
+        estado: data.estado !== undefined ? data.estado : ESTADOS.ACTIVO,
         usuario_creacion: data.usuario_creacion || null,
         grado_id: data.id_grado || null
       },
@@ -54,8 +84,8 @@ class SubjectRepository {
         descripcion: true,
         nombre_normalizado: true,
         estado: true,
-        grado_id: true,
-        tbl_m_grado: {
+        id_grado: true,
+        grado: {
           select: { id_grado: true, grado: true, paralelo: true }
         }
       }
@@ -65,6 +95,7 @@ class SubjectRepository {
   async update(id, data) {
     const updateData = {
       descripcion: data.descripcion,
+      estado: data.estado,
       usuario_modificacion: data.usuario_modificacion || null,
       fecha_modificacion: new Date()
     };
@@ -82,19 +113,19 @@ class SubjectRepository {
         descripcion: true,
         nombre_normalizado: true,
         estado: true,
-        grado_id: true,
-        tbl_m_grado: {
+        id_grado: true,
+        grado: {
           select: { id_grado: true, grado: true, paralelo: true }
         }
       }
     });
   }
 
-  async delete(id, usuarioModificacion = null) {
-    return await prisma.tbl_m_materia.update({
+  async softDelete(id, usuarioModificacion = null) {
+    return await prisma.materia.update({
       where: { id_materia: parseInt(id) },
       data: {
-        estado: false,
+        estado: ESTADOS.ELIMINADO,
         fecha_modificacion: new Date(),
         usuario_modificacion: usuarioModificacion
       }

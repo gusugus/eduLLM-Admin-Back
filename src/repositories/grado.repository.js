@@ -1,9 +1,32 @@
 const prisma = require('../config/prisma');
+const ESTADOS = require('../constants/estados');
+
+const buildWhere = (search) => {
+  if (!search) return {};
+  return {
+    OR: [
+      { grado: { equals: parseInt(search) || 0 } },
+      { paralelo: { contains: search, mode: 'insensitive' } },
+    ],
+  };
+};
 
 class GradoRepository {
-  async findAll() {
-    return await prisma.tbl_m_grado.findMany({
+  async findAll(options = {}, tx = null) {
+    const { skip = 0, take = 50, search = '' } = options;
+    const client = tx || prisma;
+    return await client.grado.findMany({
+      where: buildWhere(search),
+      skip,
+      take,
       orderBy: [{ grado: 'asc' }, { paralelo: 'asc' }]
+    });
+  }
+
+  async count(search = '', tx = null) {
+    const client = tx || prisma;
+    return await client.grado.count({
+      where: buildWhere(search),
     });
   }
 
@@ -39,9 +62,14 @@ class GradoRepository {
     });
   }
 
-  async delete(id) {
-    return await prisma.tbl_m_grado.delete({
-      where: { id_grado: parseInt(id) }
+  async delete(id, usuarioModificacion = null) {
+    return await prisma.grado.update({
+      where: { id_grado: parseInt(id) },
+      data: {
+        estado: ESTADOS.ELIMINADO,
+        fecha_modificacion: new Date(),
+        usuario_modificacion: usuarioModificacion
+      }
     });
   }
 }
