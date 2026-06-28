@@ -41,3 +41,9 @@ exports.deleteGrado = catchAsync(async (req, res) => {
   const result = await gradoService.delete(id, req.user?.id);
   res.json({ success: true, message: result.message || 'Grado eliminado correctamente' });
 });
+
+exports.activateGrado = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const result = await gradoService.activate(id);
+  res.json({ success: true, ...result });
+});

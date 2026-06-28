@@ -12,4 +12,6 @@ router.route('/:id')
   .put(sanitizeStudent, studentController.updateStudent)
   .delete(studentController.deleteStudent);
 
+router.post('/:id/activate', studentController.activateStudent);
+
 module.exports = router;

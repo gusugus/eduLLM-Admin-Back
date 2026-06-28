@@ -88,7 +88,7 @@ class StudentRepository {
             }
           }
         },
-        tbl_m_estudiante_materia: {
+        estudiante_materia: {
           select: {
             id_estudiante_materia: true,
             id_periodo_lectivo: true,
@@ -116,7 +116,7 @@ class StudentRepository {
       select: {
         id_estudiante: true,
         id_usuario: true,
-        tbl_m_usuario: {
+        usuario: {
           select: {
             id_usuario: true,
             primer_nombre: true,
@@ -140,7 +140,7 @@ class StudentRepository {
       select: {
         id_estudiante: true,
         id_usuario: true,
-        tbl_m_usuario: {
+        usuario: {
           select: {
             id_usuario: true,
             primer_nombre: true,
@@ -160,6 +160,22 @@ class StudentRepository {
         estado: ESTADOS.ELIMINADO,
         fecha_modificacion: new Date(),
         usuario_modificacion: usuarioModificacion
+      }
+    });
+  }
+
+  async activate(id, usuarioModificacion = null, tx = null) {
+    const client = tx || prisma;
+    return await client.estudiante.update({
+      where: { id_estudiante: parseInt(id) },
+      data: {
+        estado: ESTADOS.ACTIVO,
+        fecha_modificacion: new Date(),
+        usuario_modificacion: usuarioModificacion
+      },
+      select: {
+        id_estudiante: true,
+        id_usuario: true
       }
     });
   }

@@ -12,4 +12,6 @@ router.route('/:id')
   .put(sanitizeSubject, subjectController.updateSubject)
   .delete(subjectController.deleteSubject);
 
+router.post('/:id/activate', subjectController.activateSubject);
+
 module.exports = router;

@@ -4,6 +4,7 @@ const estadoService = require('./estado.service');
 const rolService = require('./rol.service');
 const prisma = require('../config/prisma');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const logger = require('../config/logger');
 const AppError = require('../utils/AppError');
@@ -12,7 +13,18 @@ const ROLES = require('../constants/roles');
 const config = require('../config');
 
 const ProfessorMapper = require('../mappers/professor.mapper');
-const { sanitizeName, sanitizeUsername, sanitizeEmail, sanitizeCedula } = require('../utils/sanitize');
+const { sanitizeName, sanitizeEmail, sanitizeCedula } = require('../utils/sanitize');
+const { generateUsername } = require('../utils/username');
+
+const generateTempPassword = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const bytes = crypto.randomBytes(4);
+  let password = '';
+  for (let i = 0; i < 4; i++) {
+    password += chars[bytes[i] % chars.length];
+  }
+  return password;
+};
 
 const professorSanitizeMap = {
   primer_nombre: sanitizeName,
@@ -21,7 +33,6 @@ const professorSanitizeMap = {
   apellido_materno: sanitizeName,
   cedula: sanitizeCedula,
   correo: sanitizeEmail,
-  username: sanitizeUsername
 };
 
 class ProfessorService {
@@ -74,7 +85,7 @@ class ProfessorService {
     return ProfessorMapper.toResponse(professor, true);
   }
 
-  async createWithUser(data) {
+  async createWithUser(data, authToken = null) {
     const safe = {
       ...data,
       ...Object.fromEntries(
@@ -83,20 +94,16 @@ class ProfessorService {
     };
 
     const {
-      cedula, username, primer_nombre, segundo_nombre,
-      apellido_paterno, apellido_materno, correo, password,
+      cedula, primer_nombre, segundo_nombre,
+      apellido_paterno, apellido_materno, correo,
       estado = ESTADOS.ACTIVO
     } = safe;
 
-    if (!username) throw new AppError('El username es requerido', 400);
     if (!primer_nombre) throw new AppError('El primer nombre es requerido', 400);
+    if (!apellido_paterno) throw new AppError('El apellido paterno es requerido', 400);
 
-    const usernameExists = await usuarioRepository.findByUsername(username);
-    if (usernameExists) {
-      throw new AppError(`El username '${username}' ya está en uso`, 409);
-    }
-
-    const password_hash = await bcrypt.hash(password, 10);
+    const username = await generateUsername(primer_nombre, apellido_paterno);
+    const password_hash = await bcrypt.hash(generateTempPassword(), 10);
 
     const result = await prisma.$transaction(async (tx) => {
       const usuario = await usuarioRepository.create({
@@ -116,20 +123,59 @@ class ProfessorService {
       return { ...profesor, usuario };
     });
 
-    logger.info(`Created professor with user: ${result.usuario.primer_nombre} ${result.usuario.segundo_nombre || ''} ${result.usuario.apellido_paterno}`);
+    logger.info(`Created professor with user: ${result.usuario.primer_nombre} ${result.usuario.segundo_nombre || ''} ${result.usuario.apellido_paterno} (${username})`);
+
+    const emailSent = await this._sendCredentials(username, authToken);
 
     return {
       id: result.id_profesor,
-      id_usuario: result.tbl_m_usuario.id_usuario,
-      nombreCompleto: `${result.tbl_m_usuario.primer_nombre} ${result.tbl_m_usuario.segundo_nombre || ''} ${result.tbl_m_usuario.apellido_paterno}`,
-      cedula: result.tbl_m_usuario.cedula,
-      correo: result.tbl_m_usuario.correo,
-      username: result.tbl_m_usuario.username
+      id_usuario: result.usuario.id_usuario,
+      nombreCompleto: `${result.usuario.primer_nombre} ${result.usuario.segundo_nombre || ''} ${result.usuario.apellido_paterno}`,
+      cedula: result.usuario.cedula,
+      correo: result.usuario.correo,
+      username: result.usuario.username,
+      message: emailSent
+        ? `Profesor creado exitosamente. Se enviaron las credenciales a ${result.usuario.correo}`
+        : 'Profesor creado exitosamente'
     };
+  }
+
+  async _sendCredentials(username, authToken = null) {
+    try {
+      const url = `${config.authServiceUrl}/api/auth/recreate-credentials`;
+      const headers = { 'Content-Type': 'application/json' };
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ username })
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        logger.error(`recreate-credentials failed: ${response.status} ${text}`);
+        return false;
+      }
+      logger.info(`Credentials sent for ${username}`);
+      return true;
+    } catch (err) {
+      logger.error(`recreate-credentials error: ${err.message}`);
+      return false;
+    }
   }
 
   async delete(id, usuarioModificacion = null) {
     return await professorRepository.delete(id, usuarioModificacion);
+  }
+
+  async activate(id, usuarioModificacion = null) {
+    const professor = await professorRepository.findById(id);
+    if (!professor) throw new AppError('Profesor no encontrado', 404);
+
+    await professorRepository.activate(id, usuarioModificacion);
+    logger.info(`Profesor ${id} activado por usuario ${usuarioModificacion || 'system'}`);
+    return { message: 'Profesor activado correctamente' };
   }
 
   async update(id, data, usuarioModificacion = null) {

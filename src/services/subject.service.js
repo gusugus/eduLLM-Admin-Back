@@ -104,6 +104,15 @@ class SubjectService {
     logger.info(`Eliminando materia id: ${id}`);
     return await subjectRepository.softDelete(id);
   }
+
+  async activate(id) {
+    const existing = await subjectRepository.findById(id);
+    if (!existing) throw new AppError('Materia no encontrada', 404);
+
+    await subjectRepository.activate(id);
+    logger.info(`Materia ${id} activada`);
+    return { message: 'Materia activada correctamente' };
+  }
 }
 
 module.exports = new SubjectService();

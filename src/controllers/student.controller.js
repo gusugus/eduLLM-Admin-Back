@@ -27,7 +27,8 @@ exports.getStudentById = catchAsync(async (req, res) => {
 });
 
 exports.createStudent = catchAsync(async (req, res) => {
-  const newItem = await studentService.createWithUser(req.body);
+  const token = req.cookies?.jwtToken || req.headers?.authorization?.replace('Bearer ', '');
+  const newItem = await studentService.createWithUser(req.body, token);
   res.status(201).json({ success: true, data: newItem });
 });
 
@@ -43,4 +44,11 @@ exports.deleteStudent = catchAsync(async (req, res) => {
   const usuarioModificacion = req.user?.id_usuario || null;
   const result = await studentService.delete(id, usuarioModificacion);
   res.json({ success: true, message: result.message || 'Estudiante eliminado correctamente' });
+});
+
+exports.activateStudent = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const usuarioModificacion = req.user?.id_usuario || null;
+  const result = await studentService.activate(id, usuarioModificacion);
+  res.json({ success: true, ...result });
 });

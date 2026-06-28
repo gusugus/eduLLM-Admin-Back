@@ -52,7 +52,7 @@ class SubjectRepository {
   }
 
   async findById(id) {
-    return await prisma.tbl_m_materia.findUnique({
+    return await prisma.materia.findUnique({
       where: { id_materia: parseInt(id) },
       select: {
         id_materia: true,
@@ -69,14 +69,14 @@ class SubjectRepository {
   }
 
   async create(data) {
-    return await prisma.tbl_m_materia.create({
+    return await prisma.materia.create({
       data: {
         nombre: data.nombre,
         descripcion: data.descripcion || null,
         nombre_normalizado: data.nombre_normalizado || null,
         estado: data.estado !== undefined ? data.estado : ESTADOS.ACTIVO,
         usuario_creacion: data.usuario_creacion || null,
-        grado_id: data.id_grado || null
+        id_grado: data.id_grado || null
       },
       select: {
         id_materia: true,
@@ -101,10 +101,10 @@ class SubjectRepository {
     };
     if (data.nombre !== undefined) updateData.nombre = data.nombre;
     if (data.nombre_normalizado !== undefined) updateData.nombre_normalizado = data.nombre_normalizado;
-    if (data.id_grado !== undefined) updateData.grado_id = data.id_grado;
+    if (data.id_grado !== undefined) updateData.id_grado = data.id_grado;
     if (data.estado !== undefined) updateData.estado = data.estado;
 
-    return await prisma.tbl_m_materia.update({
+    return await prisma.materia.update({
       where: { id_materia: parseInt(id) },
       data: updateData,
       select: {
@@ -128,6 +128,21 @@ class SubjectRepository {
         estado: ESTADOS.ELIMINADO,
         fecha_modificacion: new Date(),
         usuario_modificacion: usuarioModificacion
+      }
+    });
+  }
+
+  async activate(id, usuarioModificacion = null) {
+    return await prisma.materia.update({
+      where: { id_materia: parseInt(id) },
+      data: {
+        estado: ESTADOS.ACTIVO,
+        fecha_modificacion: new Date(),
+        usuario_modificacion: usuarioModificacion
+      },
+      select: {
+        id_materia: true,
+        nombre: true
       }
     });
   }
