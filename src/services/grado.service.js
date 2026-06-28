@@ -71,6 +71,15 @@ class GradoService {
     logger.info(`Eliminado grado id: ${id}`);
     return { message: 'Grado eliminado correctamente' };
   }
+
+  async activate(id) {
+    const existing = await gradoRepository.findById(id);
+    if (!existing) throw new AppError('Grado no encontrado', 404);
+
+    await gradoRepository.activate(id);
+    logger.info(`Grado ${id} activado`);
+    return { message: 'Grado activado correctamente' };
+  }
 }
 
 module.exports = new GradoService();

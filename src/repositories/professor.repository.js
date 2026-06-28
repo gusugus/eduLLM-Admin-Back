@@ -88,7 +88,7 @@ class ProfessorRepository {
             }
           }
         },
-        tbl_t_profesor_materia: {
+        profesor_materia: {
           select: {
             id_profesor_materia: true,
             id_periodo_lectivo: true,
@@ -116,8 +116,8 @@ class ProfessorRepository {
       },
       select: {
         id_profesor: true,
-        usuario_id: true,
-        tbl_m_usuario: {
+        id_usuario: true,
+        usuario: {
           select: {
             id_usuario: true,
             primer_nombre: true,
@@ -140,8 +140,8 @@ class ProfessorRepository {
       },
       select: {
         id_profesor: true,
-        usuario_id: true,
-        tbl_m_usuario: {
+        id_usuario: true,
+        usuario: {
           select: {
             id_usuario: true,
             primer_nombre: true,
@@ -164,6 +164,22 @@ class ProfessorRepository {
     }
   });
 }
+
+  async activate(id, usuarioModificacion = null, tx = null) {
+    const client = tx || prisma;
+    return await client.profesor.update({
+      where: { id_profesor: parseInt(id) },
+      data: {
+        estado: ESTADOS.ACTIVO,
+        fecha_modificacion: new Date(),
+        usuario_modificacion: usuarioModificacion
+      },
+      select: {
+        id_profesor: true,
+        id_usuario: true
+      }
+    });
+  }
 
 }
 

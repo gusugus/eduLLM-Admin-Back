@@ -12,4 +12,6 @@ router.route('/:id')
   .put(sanitizeGrado, gradoController.updateGrado)
   .delete(gradoController.deleteGrado);
 
+router.post('/:id/activate', gradoController.activateGrado);
+
 module.exports = router;

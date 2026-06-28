@@ -27,7 +27,8 @@ exports.getProfessorById = catchAsync(async (req, res) => {
 });
 
 exports.createProfessor = catchAsync(async (req, res) => {
-  const newItem = await professorService.createWithUser(req.body);
+  const token = req.cookies?.jwtToken || req.headers?.authorization?.replace('Bearer ', '');
+  const newItem = await professorService.createWithUser(req.body, token);
   res.status(201).json({ success: true, data: newItem });
 });
 
@@ -47,4 +48,11 @@ exports.deleteProfessor = catchAsync(async (req, res) => {
     success: true, 
     message: result.message || 'Profesor eliminado correctamente'
   });
+});
+
+exports.activateProfessor = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const usuarioModificacion = req.user?.id_usuario || null;
+  const result = await professorService.activate(id, usuarioModificacion);
+  res.json({ success: true, ...result });
 });

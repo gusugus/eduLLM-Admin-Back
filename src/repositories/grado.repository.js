@@ -31,7 +31,7 @@ class GradoRepository {
   }
 
   async findById(id) {
-    return await prisma.tbl_m_grado.findUnique({
+    return await prisma.grado.findUnique({
       where: { id_grado: parseInt(id) }
     });
   }
@@ -39,14 +39,14 @@ class GradoRepository {
   async findByGradoAndParalelo(grado, paralelo, excludeId = null) {
     const where = { grado: parseInt(grado), paralelo };
     if (excludeId) where.id_grado = { not: parseInt(excludeId) };
-    return await prisma.tbl_m_grado.findFirst({ where });
+    return await prisma.grado.findFirst({ where });
   }
 
   async create(data) {
     const maxResult = await prisma.$queryRaw`SELECT COALESCE(MAX(id_grado), 0) + 1 AS next_id FROM comun.tbl_m_grado`;
     const nextId = Number(maxResult[0].next_id);
 
-    return await prisma.tbl_m_grado.create({
+    return await prisma.grado.create({
       data: {
         id_grado: nextId,
         grado: data.grado !== undefined ? parseInt(data.grado) : null,
@@ -56,7 +56,7 @@ class GradoRepository {
   }
 
   async update(id, data) {
-    return await prisma.tbl_m_grado.update({
+    return await prisma.grado.update({
       where: { id_grado: parseInt(id) },
       data
     });
@@ -67,6 +67,17 @@ class GradoRepository {
       where: { id_grado: parseInt(id) },
       data: {
         estado: ESTADOS.ELIMINADO,
+        fecha_modificacion: new Date(),
+        usuario_modificacion: usuarioModificacion
+      }
+    });
+  }
+
+  async activate(id, usuarioModificacion = null) {
+    return await prisma.grado.update({
+      where: { id_grado: parseInt(id) },
+      data: {
+        estado: ESTADOS.ACTIVO,
         fecha_modificacion: new Date(),
         usuario_modificacion: usuarioModificacion
       }

@@ -7,6 +7,7 @@ const prisma = require('../config/prisma');
 const logger = require('../config/logger');
 const AppError = require('../utils/AppError');
 const ESTADOS = require('../constants/estados');
+const ROLES = require('../constants/roles');
 
 class AssignmentService {
 
@@ -24,6 +25,13 @@ class AssignmentService {
       estado: { not: false }
     });
     if (existing) throw new AppError('El profesor ya tiene esta materia asignada', 409);
+
+    const materiaTomada = await profesorMateriaRepository.findFirst({
+      id_materia: parseInt(id_materia),
+      id_periodo_lectivo: periodo.id_periodo_lectivo,
+      estado: { not: false }
+    });
+    if (materiaTomada) throw new AppError('Esta materia ya tiene un profesor asignado', 409);
 
     const assignment = await profesorMateriaRepository.create({
       id_profesor: parseInt(id_profesor),
@@ -52,9 +60,13 @@ class AssignmentService {
 
   async listProfessorSubjects(page = 1, limit = 10) {
     const skip = (page - 1) * limit;
+    const where = {
+      estado: true,
+      profesor: { estado: true, usuario: { id_rol: ROLES.PROFESOR } }
+    };
     const [items, total] = await Promise.all([
       profesorMateriaRepository.findMany(
-        {},
+        where,
         {
           id_profesor_materia: true,
           estado: true,
@@ -67,7 +79,7 @@ class AssignmentService {
         { id_profesor_materia: 'desc' },
         { skip, take: limit }
       ),
-      prisma.profesor_materia.count({ where: {} }),
+      prisma.profesor_materia.count({ where }),
     ]);
 
     const data = items.map(i => {
@@ -127,7 +139,7 @@ class AssignmentService {
         const estudiante = await estudianteRepository.findById(idEstudiante);
         results.push({
           id_estudiante: idEstudiante,
-          nombre: `${estudiante?.tbl_m_usuario?.primer_nombre || ''} ${estudiante?.tbl_m_usuario?.segundo_nombre || ''} ${estudiante?.tbl_m_usuario?.apellido_paterno || ''}`.trim(),
+          nombre: `${estudiante?.usuario?.primer_nombre || ''} ${estudiante?.usuario?.segundo_nombre || ''} ${estudiante?.usuario?.apellido_paterno || ''}`.trim(),
           error: 'Ya tiene esta materia asignada'
         });
         continue;
@@ -159,11 +171,34 @@ class AssignmentService {
     return results;
   }
 
-  async listStudentSubjects(page = 1, limit = 10) {
+  async listStudentSubjects(page = 1, limit = 10, id_materia = null, all = false) {
+    const where = {};
+    if (id_materia) where.id_materia = parseInt(id_materia);
+    where.estudiante = { estado: true, usuario: { id_rol: ROLES.ESTUDIANTE } };
+
+    if (all) {
+      where.estado = true;
+      const items = await estudianteMateriaRepository.findMany(
+        where,
+        {
+          id_estudiante_materia: true,
+          estado: true,
+          id_estudiante: true,
+          estudiante: {
+            select: { id_estudiante: true, usuario: { select: { primer_nombre: true, segundo_nombre: true, apellido_paterno: true } } }
+          },
+          materia: { select: { id_materia: true, nombre: true, grado: { select: { grado: true, paralelo: true } } } },
+          periodo_lectivo: { select: { id_periodo_lectivo: true, nombre: true } }
+        }
+      );
+      return { data: items.map(i => ({ id_estudiante: i.id_estudiante })) };
+    }
+
+    where.estado = true;
     const skip = (page - 1) * limit;
     const [items, total] = await Promise.all([
       estudianteMateriaRepository.findMany(
-        {},
+        where,
         {
           id_estudiante_materia: true,
           estado: true,
@@ -176,7 +211,7 @@ class AssignmentService {
         { id_estudiante_materia: 'desc' },
         { skip, take: limit }
       ),
-      prisma.estudiante_materia.count({ where: {} }),
+      prisma.estudiante_materia.count({ where }),
     ]);
 
     const data = items.map(i => {

@@ -37,8 +37,12 @@ exports.assignStudentsToSubject = catchAsync(async (req, res) => {
 });
 
 exports.listStudentSubjects = catchAsync(async (req, res) => {
+  if (req.query.all === 'true') {
+    const result = await assignmentService.listStudentSubjects(1, null, req.query.id_materia, true);
+    return res.json({ success: true, data: result.data });
+  }
   const { page, limit } = parsePagination(req);
-  const result = await assignmentService.listStudentSubjects(page, limit);
+  const result = await assignmentService.listStudentSubjects(page, limit, req.query.id_materia);
   res.json({ success: true, ...result });
 });
 

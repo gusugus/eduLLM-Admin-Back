@@ -42,3 +42,9 @@ exports.deleteSubject = catchAsync(async (req, res) => {
   const result = await subjectService.delete(id);
   res.json({ success: true, message: result.message || 'Materia eliminada correctamente' });
 });
+
+exports.activateSubject = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const result = await subjectService.activate(id);
+  res.json({ success: true, ...result });
+});
